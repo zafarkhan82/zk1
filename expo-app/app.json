@@ -37,7 +37,7 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true,
-      "baseUrl": "/zk1"
+      "baseUrl": "/zk1/docs"
     }
   }
 }
