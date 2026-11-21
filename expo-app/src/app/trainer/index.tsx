@@ -79,6 +79,9 @@ function ClubCard({ clubId, rows, onChanged }: { clubId: string; rows: StaffRow[
           {first.role === 'club_admin' ? 'Vereins-Admin' : 'Trainer*in'}
         </T>
       </Row>
+      {approved && first.role === 'club_admin' && (
+        <Button title="⚙️ Vereins-Administration" onPress={() => router.push({ pathname: '/verein/[id]', params: { id: clubId } })} />
+      )}
       {!approved && (
         <T size={14} color="textSecondary">
           ⏳ {first.clubStatus !== 'approved' ? 'Der Verein wird gerade von Go4Pro geprüft.' : 'Dein Antrag wartet auf die Freigabe durch den Verein.'}

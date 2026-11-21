@@ -72,6 +72,7 @@ function RootStack() {
       <Stack.Screen name="admin" options={{ title: 'Admin' }} />
       <Stack.Screen name="trainer/index" options={{ title: 'Trainer-Bereich' }} />
       <Stack.Screen name="trainer/team/[id]" options={{ title: 'Team' }} />
+      <Stack.Screen name="verein/[id]" options={{ title: 'Verein' }} />
     </Stack>
   );
 }

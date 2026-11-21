@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import {
+  Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -299,4 +301,17 @@ export function EmptyState({ emoji, title, text, action }: { emoji: string; titl
       {action}
     </Card>
   );
+}
+
+/** Sicherheitsabfrage vor folgenreichen Aktionen (Web: confirm, App: Alert) */
+export function confirmAction(title: string, message: string, onYes: () => void, yesLabel = 'Ja') {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    if (typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`)) onYes();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: 'Abbrechen', style: 'cancel' },
+    { text: yesLabel, style: 'destructive', onPress: onYes },
+  ]);
 }
