@@ -76,7 +76,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const uid = session?.user.id ?? null;
 
-  const [ready, setReady] = useState(false);
+  // Für welches Konto die Spielerliste geladen ist ("" = abgemeldet). So ist "ready" nie veraltet.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -90,7 +91,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!uid) {
       setPlayers([]);
       setActiveId(null);
-      setReady(true);
+      setLoadedFor('');
       return;
     }
     const { data, error } = await supabase
@@ -109,7 +110,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // ignorieren
     }
     setActiveId(list.find((p) => p.id === stored)?.id ?? list[0]?.id ?? null);
-    setReady(true);
+    setLoadedFor(uid);
   }, [uid]);
 
   const loadPlayerData = useCallback(async (playerId: string) => {
@@ -148,8 +149,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setReady(false);
-    loadPlayers().catch(() => setReady(true));
+    loadPlayers().catch(() => setLoadedFor(uid ?? ''));
   }, [loadPlayers]);
 
   useEffect(() => {
@@ -285,6 +285,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (activeId) await loadPlayerData(activeId);
   }, [loadPlayers, loadPlayerData, activeId]);
 
+  const ready = loadedFor === (uid ?? '');
   const profile = players.find((p) => p.id === activeId) ?? null;
   const group: AgeGroup = (profile && ageGroupFor(profile.birthYear)) || 'E';
   const state: AppState = useMemo(() => ({ profile, logs, diary, claimed }), [profile, logs, diary, claimed]);

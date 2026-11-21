@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import { TabList, Tabs, TabSlot, TabTrigger, type TabTriggerSlotProps } from 'expo-router/ui';
-import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
@@ -17,11 +17,19 @@ const TABS = [
 
 export default function TabLayout() {
   const { session } = useAuth();
-  const { players } = useStore();
+  const { players, ready } = useStore();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
   if (!session) return <Redirect href="/login" />;
+  if (!ready) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background, gap: 12 }}>
+        <ActivityIndicator color={theme.primary} size="large" />
+        <Text style={{ color: theme.textSecondary }}>Lade deine Daten …</Text>
+      </View>
+    );
+  }
   if (players.length === 0) return <Redirect href="/onboarding" />;
 
   return (
