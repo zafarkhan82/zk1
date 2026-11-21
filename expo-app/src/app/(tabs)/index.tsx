@@ -13,7 +13,7 @@ import type { Level } from '@/lib/types';
 const NEXT: Record<string, Level> = { none: 'bronze', bronze: 'silber', silber: 'gold', gold: 'gold' };
 
 export default function Home() {
-  const { state, group } = useStore();
+  const { state, group, premium } = useStore();
   const theme = useTheme();
   const profile = state.profile!;
   const xp = totalXp(state);
@@ -103,7 +103,7 @@ export default function Home() {
       <SectionTitle>Heute für dich</SectionTitle>
       {suggestions.map((e) => {
         const best = bestLevel(state.logs, e.id);
-        const next = NEXT[best ?? 'none'];
+        const next = premium ? NEXT[best ?? 'none'] : 'bronze';
         const lv = LEVELS.find((l) => l.id === next)!;
         const target = targetFor(e, next, group);
         return (

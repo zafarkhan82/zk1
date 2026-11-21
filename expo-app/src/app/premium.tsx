@@ -9,13 +9,14 @@ import { errorText, supabase } from '@/lib/supabase';
 
 const FREE = [
   'Trainingstagebuch',
-  'Alle Übungen selbst eintragen (Bronze bis Gold)',
+  'Alle Übungen auf Bronze eintragen',
   'Punkte, Level, Skills und Abzeichen',
   'Team beitreten, Team-Challenges auf Bronze',
   'Spielberichte des eigenen Teams',
 ];
 
 const PREMIUM = [
+  'Stärkegrade Silber und Gold',
   'Leistungen vom Trainer bestätigen lassen',
   'Bewertungen durch Trainer',
   'Bewertungen durch Mitspieler und Gegner',

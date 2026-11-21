@@ -18,7 +18,10 @@ export default function ExerciseScreen() {
   const { state, group, premium, addLog, requestConfirmation } = useStore();
   const theme = useTheme();
   const best = ex ? bestLevel(state.logs, ex.id) : null;
-  const [level, setLevel] = useState<Level>(best === 'gold' ? 'gold' : best === 'silber' ? 'gold' : best === 'bronze' ? 'silber' : 'bronze');
+  const [level, setLevel] = useState<Level>(
+    !premium ? 'bronze' : best === 'gold' ? 'gold' : best === 'silber' ? 'gold' : best === 'bronze' ? 'silber' : 'bronze',
+  );
+  const locked = !premium && level !== 'bronze';
   const [value, setValue] = useState('');
   const [note, setNote] = useState('');
   const [result, setResult] = useState<ExerciseLog | null>(null);
@@ -102,7 +105,7 @@ export default function ExerciseScreen() {
         {LEVELS.map((l) => (
           <Chip
             key={l.id}
-            label={`${l.label} · ${l.sub}`}
+            label={`${!premium && l.id !== 'bronze' ? '⭐ ' : ''}${l.label} · ${l.sub}`}
             selected={level === l.id}
             color={theme[l.id]}
             onPress={() => {
@@ -156,7 +159,16 @@ export default function ExerciseScreen() {
           />
         )}
         <Field label="Notiz (optional)" placeholder="Wie lief's?" value={note} onChangeText={setNote} maxLength={200} />
-        <Button title={busy ? 'Speichere …' : ex.measure === 'check' ? 'Als erledigt eintragen' : 'Speichern'} onPress={save} disabled={!canSave || busy} />
+        {locked ? (
+          <>
+            <T size={14} color="textSecondary">
+              Silber und Gold sind Premium. Bronze kannst du jederzeit kostenlos eintragen.
+            </T>
+            <Button title="⭐ Premium freischalten" onPress={() => router.push('/premium')} />
+          </>
+        ) : (
+          <Button title={busy ? 'Speichere …' : ex.measure === 'check' ? 'Als erledigt eintragen' : 'Speichern'} onPress={save} disabled={!canSave || busy} />
+        )}
         {!!error && <T size={14} style={{ color: theme.danger }}>{error}</T>}
       </Card>
 
