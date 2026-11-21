@@ -9,7 +9,7 @@
 --  * DSGVO-Löschantrag: Person wird anonymisiert (Funktion anonymize_player), Statistik bleibt.
 --  * Öffentlich sichtbar sind nur Spieler mit Eltern-Zustimmung, und nur Spitzname, Jahrgang, Verein.
 
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 -- ───────────────────────── Typen ─────────────────────────
 
@@ -321,7 +321,7 @@ create trigger players_protect_consent before update on players
 -- Wird von der Bestätigungsseite mit dem Klartext-Token aus der E-Mail aufgerufen.
 create or replace function confirm_by_token(p_token text, p_accept boolean default true)
 returns text
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   c confirmations;
   cur_version int;
