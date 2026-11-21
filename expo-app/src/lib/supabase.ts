@@ -38,7 +38,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web',
-    flowType: 'pkce',
+    // Web: Tokens direkt im Link, damit der Anmelde-Link auch in einem anderen Browser funktioniert.
+    flowType: Platform.OS === 'web' ? 'implicit' : 'pkce',
   },
 });
 
