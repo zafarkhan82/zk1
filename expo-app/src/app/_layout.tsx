@@ -69,6 +69,7 @@ function RootStack() {
       <Stack.Screen name="eintrag" options={{ title: 'Neuer Tagebucheintrag', presentation: 'modal' }} />
       <Stack.Screen name="premium" options={{ title: 'Premium', presentation: 'modal' }} />
       <Stack.Screen name="team" options={{ title: 'Mein Team' }} />
+      <Stack.Screen name="admin" options={{ title: 'Admin' }} />
     </Stack>
   );
 }

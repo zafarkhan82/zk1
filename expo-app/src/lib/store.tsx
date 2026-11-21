@@ -25,6 +25,7 @@ interface Store {
   state: AppState;
   group: AgeGroup;
   premium: boolean;
+  isAdmin: boolean;
   teams: TeamInfo[];
   selectPlayer: (id: string) => void;
   createPlayer: (p: NewPlayer) => Promise<void>;
@@ -42,6 +43,7 @@ const Ctx = createContext<Store | null>(null);
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toPlayer = (r: any, uid: string): Player => ({
   id: r.id,
+  code: r.code,
   nickname: r.nickname,
   birthYear: r.birth_year,
   position: (r.preferred_position ?? 'Noch offen') as Position,
@@ -86,6 +88,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [claimed, setClaimed] = useState<string[]>([]);
   const [premium, setPremium] = useState(false);
   const [teams, setTeams] = useState<TeamInfo[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!uid) {
+      setIsAdmin(false);
+      return;
+    }
+    supabase.rpc('is_platform_admin').then(({ data }) => setIsAdmin(!!data));
+  }, [uid]);
 
   const loadPlayers = useCallback(async () => {
     if (!uid) {
@@ -298,6 +309,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state,
       group,
       premium,
+      isAdmin,
       teams,
       selectPlayer,
       createPlayer,
@@ -309,7 +321,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       claim,
       refresh,
     }),
-    [ready, loading, players, state, group, premium, teams, selectPlayer, createPlayer, setPublicConsent, addLog, requestConfirmation, addDiary, joinTeam, claim, refresh],
+    [ready, loading, players, state, group, premium, isAdmin, teams, selectPlayer, createPlayer, setPublicConsent, addLog, requestConfirmation, addDiary, joinTeam, claim, refresh],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

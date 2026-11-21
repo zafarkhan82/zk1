@@ -13,7 +13,7 @@ import { errorText } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const { session, signOut } = useAuth();
-  const { state, group, players, premium, teams, selectPlayer, setPublicConsent } = useStore();
+  const { state, group, players, premium, isAdmin, teams, selectPlayer, setPublicConsent } = useStore();
   const theme = useTheme();
   const [error, setError] = useState('');
   const profile = state.profile!;
@@ -62,6 +62,9 @@ export default function ProfileScreen() {
         </T>
         <T weight="700">
           Level {lvl.level} · {lvl.title} · {xp} XP
+        </T>
+        <T size={12} color="textSecondary">
+          Spieler-Code: {profile.code}
         </T>
       </Card>
 
@@ -149,6 +152,7 @@ export default function ProfileScreen() {
           Angemeldet als {session?.user.email}
         </T>
         <Button title="+ Weiteres Kind anlegen" variant="secondary" onPress={() => router.push('/onboarding')} />
+        {isAdmin && <Button title="🛠️ Admin-Bereich" variant="secondary" onPress={() => router.push('/admin')} />}
         <Button title="Abmelden" variant="danger" onPress={() => signOut()} />
         <T size={12} color="textSecondary">
           Einträge werden nie gelöscht. Auf Wunsch anonymisieren wir ein Profil vollständig (DSGVO) – schreib uns dazu.

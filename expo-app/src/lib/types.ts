@@ -15,6 +15,8 @@ export type Position = 'Tor' | 'Abwehr' | 'Mittelfeld' | 'Sturm' | 'Noch offen';
 
 export interface Player {
   id: string;
+  /** Eindeutiges 6-stelliges Kürzel, z. B. für den Verwendungszweck */
+  code: string;
   nickname: string;
   birthYear: number;
   position: Position;
