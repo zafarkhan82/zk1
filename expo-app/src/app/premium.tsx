@@ -25,6 +25,10 @@ const PREMIUM = [
 ];
 
 interface Order {
+  email?: string;
+  email_sent?: boolean;
+  email_already_sent?: boolean;
+  email_error?: string | null;
   reference: string;
   amount_cents: number;
   status: 'offen' | 'bezahlt' | 'storniert';
@@ -82,9 +86,15 @@ export default function Premium() {
     setBusy(true);
     setError('');
     try {
-      const { data, error: e } = await supabase.rpc('create_payment_order', { p_player: state.profile.id });
-      if (e) throw e;
-      setOrder((data as Order[])[0] ?? null);
+      // Bevorzugt über die Mail-Funktion (legt Auftrag an + schickt E-Mail). Fallback: nur Auftrag anlegen.
+      const fn = await supabase.functions.invoke('payment-order', { body: { player_id: state.profile.id } });
+      if (!fn.error && fn.data?.reference) {
+        setOrder(fn.data as Order);
+      } else {
+        const { data, error: e } = await supabase.rpc('create_payment_order', { p_player: state.profile.id });
+        if (e) throw e;
+        setOrder((data as Order[])[0] ?? null);
+      }
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -153,6 +163,16 @@ export default function Premium() {
             <T size={13} style={{ color: theme.danger }}>
               Die Bankverbindung wird gerade hinterlegt. Bitte schau in Kürze noch einmal hier vorbei – der Verwendungszweck
               bleibt gleich.
+            </T>
+          )}
+          {order.email_sent && (
+            <T size={13} weight="700" style={{ color: theme.primary }}>
+              📧 Die Zahlungsinformationen mit GiroCode haben wir an {order.email} geschickt.
+            </T>
+          )}
+          {!order.email_sent && order.email_already_sent && (
+            <T size={13} color="textSecondary">
+              📧 Die Zahlungsinformationen wurden bereits an {order.email} geschickt.
             </T>
           )}
           <T size={12} color="textSecondary">
