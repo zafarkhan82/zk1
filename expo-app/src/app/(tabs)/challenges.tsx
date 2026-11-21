@@ -25,7 +25,7 @@ export default function Challenges() {
   const shareDuel = async () => {
     try {
       await Share.share({
-        message: `⚽ Kick-Tagebuch: Ich bin Level ${lvl.level} (${lvl.title}) mit ${totalXp(state)} XP. Wer von uns schafft diese Woche mehr Challenges?`,
+        message: `⚽ Go4Pro: Ich bin Level ${lvl.level} (${lvl.title}) mit ${totalXp(state)} XP. Wer von uns schafft diese Woche mehr Challenges?`,
       });
     } catch {
       // abgebrochen

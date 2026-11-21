@@ -99,7 +99,7 @@ export default function Premium() {
       <View style={{ alignItems: 'center', gap: Spacing.one }}>
         <T size={44}>⭐</T>
         <T size={26} weight="800">
-          Kick-Tagebuch Premium
+          Go4Pro Premium
         </T>
         <T color="textSecondary" style={{ textAlign: 'center' }}>
           Für {name}: zeig deine Leistung über das Team hinaus.

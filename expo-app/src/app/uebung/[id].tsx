@@ -72,7 +72,7 @@ export default function ExerciseScreen() {
 
   const challengeFriend = async (log: ExerciseLog) => {
     const valueText = log.value !== null ? `${log.value} ${ex.unit}` : 'geschafft';
-    const message = `⚽ Kick-Tagebuch Duell!\nIch habe bei „${ex.title}“ (${LEVELS.find((l) => l.id === log.level)!.label}) ${valueText}. Schaffst du ${ex.lowerIsBetter ? 'eine bessere Zeit' : 'mehr'}?`;
+    const message = `⚽ Go4Pro-Duell!\nIch habe bei „${ex.title}“ (${LEVELS.find((l) => l.id === log.level)!.label}) ${valueText}. Schaffst du ${ex.lowerIsBetter ? 'eine bessere Zeit' : 'mehr'}?`;
     try {
       await Share.share({ message });
     } catch {

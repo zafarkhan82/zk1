@@ -59,10 +59,10 @@ export default function Login() {
       <View style={{ alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four }}>
         <T size={56}>⚽</T>
         <T size={30} weight="800" style={{ textAlign: 'center' }}>
-          Kick-Tagebuch
+          Go4Pro
         </T>
         <T color="textSecondary" style={{ textAlign: 'center' }}>
-          Trainieren, Punkte sammeln, vom Trainer bestätigen lassen.
+          Dein Weg nach oben: trainieren, Entwicklung festhalten, vom Trainer bestätigen lassen.
         </T>
       </View>
 
@@ -88,7 +88,7 @@ export default function Login() {
               value={email}
               onChangeText={setEmail}
             />
-            <Button title={busy ? 'Sende …' : 'Anmelde-Link senden'} disabled={!validEmail || busy} onPress={() => run(async () => {
+            <Button title={busy ? 'Sende …' : 'Code senden'} disabled={!validEmail || busy} onPress={() => run(async () => {
               await sendCode(email);
               setSent(true);
             })} />
@@ -96,8 +96,8 @@ export default function Login() {
         ) : (
           <>
             <T size={14}>
-              Wir haben dir eine E-Mail an <T weight="700" size={14}>{email.trim()}</T> geschickt. Tippe auf den Link darin – oder gib
-              den Code aus der E-Mail hier ein.
+              Wir haben dir einen 6-stelligen Code an <T weight="700" size={14}>{email.trim()}</T> geschickt. Gib ihn hier ein. Keine Mail
+              da? Schau auch im Spam-Ordner nach.
             </T>
             <Field
               label="Code aus der E-Mail"

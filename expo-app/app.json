@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Kick-Tagebuch",
-    "slug": "kick-tagebuch",
+    "name": "Go4Pro",
+    "slug": "go4pro",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "kicktagebuch",
+    "scheme": "go4pro",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
