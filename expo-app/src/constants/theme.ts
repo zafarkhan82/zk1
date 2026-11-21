@@ -1,26 +1,39 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
- */
-
 import '@/global.css';
 
 import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#0E1A12',
+    background: '#F4F7F5',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#E3EEE7',
+    textSecondary: '#5B6B61',
+    border: '#DCE5DF',
+    primary: '#118C4F',
+    primaryText: '#FFFFFF',
+    primarySoft: '#DDF3E6',
+    accent: '#F2A900',
+    danger: '#C93A3A',
+    bronze: '#B0703A',
+    silber: '#8A949C',
+    gold: '#D4A017',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#EEF4F0',
+    background: '#0B110D',
+    backgroundElement: '#16201A',
+    backgroundSelected: '#1F2E25',
+    textSecondary: '#9DB0A4',
+    border: '#26352C',
+    primary: '#2FBF71',
+    primaryText: '#04140A',
+    primarySoft: '#143323',
+    accent: '#F5B82E',
+    danger: '#F07070',
+    bronze: '#D08A50',
+    silber: '#AEB8C0',
+    gold: '#E8B830',
   },
 } as const;
 
@@ -28,13 +41,9 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
@@ -61,5 +70,4 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const MaxContentWidth = 640;
