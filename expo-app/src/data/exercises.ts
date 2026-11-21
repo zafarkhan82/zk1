@@ -1,3 +1,4 @@
+import { DISTANCE, targetValue } from '@/data/targets';
 import { groupIndex } from '@/lib/age';
 import type { AgeGroup, Category, Level } from '@/lib/types';
 
@@ -9,6 +10,7 @@ export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
   { id: 'koordination', label: 'Koordination', emoji: '🌀' },
   { id: 'athletik', label: 'Athletik', emoji: '💪' },
   { id: 'kopf', label: 'Kopf & Taktik', emoji: '🧠' },
+  { id: 'torwart', label: 'Torwart', emoji: '🧤' },
 ];
 
 export const LEVELS: { id: Level; label: string; sub: string; xp: number }[] = [
@@ -44,18 +46,21 @@ export interface Exercise {
   minutes: number;
 }
 
-const COUNT_FACTOR: Record<AgeGroup, number> = { E: 1, D: 1.3, C: 1.6, B: 1.9, A: 2.2 };
-const TIME_FACTOR: Record<AgeGroup, number> = { E: 1, D: 0.92, C: 0.86, B: 0.81, A: 0.77 };
-
 export function targetFor(ex: Exercise, level: Level, group: AgeGroup): number {
-  const base = ex.base[level];
-  if (ex.measure === 'check' || ex.noScale) return base;
-  if (ex.lowerIsBetter) return Math.round(base * TIME_FACTOR[group] * 10) / 10;
-  return Math.round(base * COUNT_FACTOR[group]);
+  return targetValue(ex.id, group, level) ?? ex.base[level];
 }
 
+/** Abstand für Treffer-Übungen in dieser Altersklasse, falls festgelegt. */
+export function distanceFor(ex: Exercise, group: AgeGroup): string | null {
+  return DISTANCE[ex.id]?.[group] ?? null;
+}
+
+/**
+ * Ziel erreicht? Abhak-Übungen ("erledigt") zählen nie automatisch als erreicht –
+ * sie werden erst durch die Trainer-Freigabe zum erreichten Ziel.
+ */
 export function isAchieved(ex: Exercise, level: Level, group: AgeGroup, value: number | null) {
-  if (ex.measure === 'check') return true;
+  if (ex.measure === 'check') return false;
   if (value === null || Number.isNaN(value)) return false;
   const t = targetFor(ex, level, group);
   return ex.lowerIsBetter ? value <= t : value >= t;
@@ -197,7 +202,7 @@ export const EXERCISES: Exercise[] = [
       silber: 'Übersteiger + Schere: je 20× pro Seite im Tempo.',
       gold: 'Eigene Finten-Kombination (3 Finten nacheinander) 15× flüssig.',
     },
-    description: 'Finten helfen dir, im 1-gegen-1 am Gegner vorbeizukommen.',
+    description: 'Finten helfen dir, im 1-gegen-1 am Gegner vorbeizukommen. Ob Silber oder Gold geschafft ist, entscheidet dein Trainer beim Freigeben.',
     steps: ['Ein Hütchen als Gegenspieler hinstellen.', 'Auf das Hütchen zudribbeln, Finte, dann explosiv vorbei.', 'Jede Seite gleich oft üben.'],
     tips: ['Die Finte mit dem Oberkörper verkaufen.', 'Nach der Finte das Tempo erhöhen.'],
     equipment: 'Ball, 1 Hütchen',
@@ -228,7 +233,7 @@ export const EXERCISES: Exercise[] = [
     title: '1-gegen-1 Duelle',
     category: 'dribbling',
     emoji: '⚔️',
-    minGroup: 'D',
+    minGroup: 'E',
     measure: 'hits',
     unit: 'gewonnene Duelle von 10',
     noScale: true,
@@ -236,7 +241,7 @@ export const EXERCISES: Exercise[] = [
     variant: {
       bronze: 'Gegen einen Freund, Ziel: über eine Linie dribbeln.',
       silber: 'Feld 10×15 m, Ziel: in ein Mini-Tor treffen.',
-      gold: 'Gegen einen älteren oder stärkeren Spieler.',
+      gold: 'Mini-Tor nur 1 m breit und 5 Sekunden Zeit pro Angriff.',
     },
     description: 'Spiele 10 Duelle gegen einen Partner. Zähle, wie viele du gewinnst.',
     steps: ['Feld markieren.', 'Abwechselnd angreifen.', 'Notiere deine gewonnenen Angriffe.'],
@@ -277,9 +282,9 @@ export const EXERCISES: Exercise[] = [
     noScale: true,
     base: { bronze: 5, silber: 7, gold: 9 },
     variant: {
-      bronze: '2 Hütchen 1 m breit, 8 m Abstand, starker Fuß.',
-      silber: '10 m Abstand, 5× links, 5× rechts.',
-      gold: '12 m Abstand, Ball vorher annehmen und in Bewegung passen.',
+      bronze: 'Mini-Tor 1 m breit, starker Fuß.',
+      silber: '5× links, 5× rechts.',
+      gold: 'Ball vorher annehmen und in der Bewegung passen, beidfüßig.',
     },
     description: 'Triff mit flachen Pässen ein kleines Hütchen-Tor.',
     steps: ['Mini-Tor aus zwei Hütchen bauen.', '10 Pässe.', 'Nur flache Pässe zählen.'],
@@ -298,9 +303,9 @@ export const EXERCISES: Exercise[] = [
     noScale: true,
     base: { bronze: 4, silber: 6, gold: 8 },
     variant: {
-      bronze: 'Zielfeld 5×5 m in 20 m Entfernung.',
-      silber: 'Zielfeld 5×5 m in 30 m Entfernung.',
-      gold: '30 m, beidfüßig (5× links, 5× rechts).',
+      bronze: 'Zielfeld 5×5 m, starker Fuß.',
+      silber: 'Zielfeld 5×5 m, aus kurzem Anlauf.',
+      gold: 'Zielfeld 5×5 m, beidfüßig (5× links, 5× rechts).',
     },
     description: 'Lange, hohe Pässe präzise in ein Zielfeld spielen.',
     steps: ['Zielfeld markieren.', '10 Flugbälle aus dem Stand oder kurzem Anlauf.', 'Der Ball muss im Feld aufkommen.'],
@@ -321,8 +326,8 @@ export const EXERCISES: Exercise[] = [
     noScale: true,
     base: { bronze: 4, silber: 6, gold: 8 },
     variant: {
-      bronze: 'Halbes Tor rechts/links als Ziel, 9 m.',
-      silber: 'Nur untere Ecken (Ziel-Markierung), 11 m.',
+      bronze: 'Halbes Tor rechts/links als Ziel.',
+      silber: 'Nur untere Ecken (Ziel-Markierung).',
       gold: 'Untere Ecken, beidfüßig, aus der Bewegung.',
     },
     description: 'Präzision vor Kraft: Triff die Ecken des Tores.',
@@ -342,9 +347,9 @@ export const EXERCISES: Exercise[] = [
     noScale: true,
     base: { bronze: 3, silber: 5, gold: 7 },
     variant: {
-      bronze: 'Mit schwachem Fuß aufs leere Tor aus 7 m.',
-      silber: 'Schwacher Fuß, Ziel halbes Tor, 9 m.',
-      gold: 'Schwacher Fuß, untere Ecken, 11 m.',
+      bronze: 'Mit schwachem Fuß aufs leere Tor.',
+      silber: 'Schwacher Fuß, Ziel halbes Tor.',
+      gold: 'Schwacher Fuß, untere Ecken.',
     },
     description: 'Wer mit beiden Füßen schießen kann, ist doppelt gefährlich.',
     steps: ['Nur der schwache Fuß zählt.', '10 Schüsse, Treffer zählen.'],
@@ -408,7 +413,7 @@ export const EXERCISES: Exercise[] = [
     variant: {
       bronze: 'Augen auf, Arme frei.',
       silber: 'Augen auf, Ball dabei mit den Händen um den Körper kreisen.',
-      gold: 'Augen zu.',
+      gold: 'Augen zu – neben einer Wand, damit du dich abfangen kannst.',
     },
     description: 'Gutes Gleichgewicht hilft beim Schießen, Passen und in Zweikämpfen.',
     steps: ['Auf ein Bein stellen, anderes Knie leicht anheben.', 'Zeit stoppen, bis der Fuß den Boden berührt.', 'Beide Beine testen, das schwächere zählt.'],
@@ -449,13 +454,18 @@ export const EXERCISES: Exercise[] = [
     lowerIsBetter: true,
     base: { bronze: 4.6, silber: 4.2, gold: 3.9 },
     variant: {
-      bronze: 'Ohne Ball, Start aus dem Stand.',
-      silber: 'Ohne Ball, bestes von 3 Versuchen.',
-      gold: 'Mit Ball am Fuß (Ziel gilt trotzdem!).',
+      bronze: 'Start aus dem Stand (Schrittstellung), ohne Ball.',
+      silber: 'Start aus dem Stand (Schrittstellung), ohne Ball – schnellere Zeit.',
+      gold: 'Start aus dem Stand (Schrittstellung), ohne Ball – Top-Zeit.',
     },
-    description: 'Schnelligkeit über kurze Strecken entscheidet viele Spielszenen.',
-    steps: ['20 m abmessen.', 'Jemand stoppt die Zeit.', '2 Minuten Pause zwischen den Versuchen.'],
-    tips: ['Vorher gut aufwärmen.', 'Die ersten Schritte kurz und schnell.'],
+    description: 'Schnelligkeit über kurze Strecken entscheidet viele Spielszenen. Immer gleiche Startart, damit Zeiten vergleichbar sind.',
+    steps: [
+      'Pflicht: vorher 10 Minuten aufwärmen (Übung „Aufwärmen“).',
+      '20 m abmessen, Start- und Ziellinie markieren.',
+      'Startsignal durch den Zeitnehmer, der an der Ziellinie steht.',
+      'Höchstens 3 Läufe, 2 Minuten Pause dazwischen – der beste zählt.',
+    ],
+    tips: ['Die ersten Schritte kurz und schnell.', 'Nicht auf nassem Rasen oder glattem Boden sprinten.'],
     equipment: 'Stoppuhr, Maßband, Helfer',
     minutes: 15,
   },
@@ -475,7 +485,11 @@ export const EXERCISES: Exercise[] = [
     },
     description: 'Stärkt Sprunggelenke, Ausdauer und Rhythmus.',
     steps: ['1 Minute Zeit stoppen.', 'Sprünge zählen.', 'Fehler sind erlaubt, einfach weiter.'],
-    tips: ['Nur kleine Sprünge, auf den Fußballen.'],
+    tips: [
+      'Nur kleine Sprünge, auf den Fußballen.',
+      'Auf weichem Untergrund springen (Rasen, Hallenboden).',
+      'Bei Schmerzen an Ferse oder Knie aufhören und Eltern oder Trainer*in Bescheid sagen.',
+    ],
     equipment: 'Springseil, Stoppuhr',
     minutes: 5,
   },
@@ -490,13 +504,17 @@ export const EXERCISES: Exercise[] = [
     lowerIsBetter: true,
     base: { bronze: 6.4, silber: 5.9, gold: 5.5 },
     variant: {
-      bronze: 'Ohne Ball, Richtungswechsel mit Hand am Boden.',
-      silber: 'Ohne Ball, bestes von 3 Versuchen.',
-      gold: 'Mit Ball am Fuß.',
+      bronze: 'Ohne Ball, an jeder Linie mit der Hand den Boden berühren.',
+      silber: 'Ohne Ball, an jeder Linie mit der Hand den Boden berühren – schnellere Zeit.',
+      gold: 'Ohne Ball, an jeder Linie mit der Hand den Boden berühren – Top-Zeit.',
     },
     description: 'Testet Antritt und Richtungswechsel – genau das brauchst du im Spiel.',
     steps: ['Drei Linien im Abstand von 5 m.', 'Start Mitte: 5 m links, 10 m rechts, 5 m zurück zur Mitte.', 'Zeit stoppen.'],
-    tips: ['Tief abbremsen, Körperschwerpunkt runter.'],
+    tips: [
+      'Pflicht: vorher aufwärmen.',
+      'Tief abbremsen, Körperschwerpunkt runter – Knie über dem Fuß, nicht nach innen knicken.',
+      'Nicht auf nassem Rasen oder Asphalt.',
+    ],
     equipment: 'Hütchen, Stoppuhr',
     minutes: 15,
   },
@@ -512,11 +530,15 @@ export const EXERCISES: Exercise[] = [
     variant: {
       bronze: 'Unterarmstütz, Knie dürfen am Boden sein.',
       silber: 'Normaler Unterarmstütz.',
-      gold: 'Unterarmstütz, abwechselnd ein Bein anheben.',
+      gold: 'Unterarmstütz, abwechselnd ein Bein anheben (höchstens 60 Sekunden).',
     },
     description: 'Ein starker Rumpf schützt vor Verletzungen und macht dich zweikampfstark.',
-    steps: ['Auf Unterarme und Zehen stützen.', 'Körper gerade wie ein Brett.', 'Zeit stoppen, bis die Hüfte durchhängt.'],
-    tips: ['Weiter atmen!', 'Qualität vor Dauer.'],
+    steps: [
+      'Auf Unterarme und Zehen stützen.',
+      'Körper gerade wie ein Brett.',
+      'Zeit stoppen – aufhören, sobald die Hüfte durchhängt. Mehr als 60 Sekunden bringen nichts extra.',
+    ],
+    tips: ['Weiter atmen!', 'Qualität vor Dauer.', 'Abwechslung: auch Seitstütz und Rückenstütz üben.'],
     equipment: 'Matte',
     minutes: 5,
   },
@@ -573,30 +595,177 @@ export const EXERCISES: Exercise[] = [
     noScale: true,
     base: { bronze: 6, silber: 8, gold: 10 },
     variant: {
-      bronze: 'Grundregeln: Einwurf, Ecke, Abstoß, Foul.',
-      silber: 'Abseits, Freistoßarten, Rückpass.',
+      bronze: 'Grundregeln deiner Spielform (in der E-Jugend z. B. Eindribbeln statt Einwurf – frag deinen Trainer).',
+      silber: 'Freistoßarten, Abseits (ab D-Jugend), Rückpass zum Torwart.',
       gold: 'Schwierige Situationen: Vorteil, Handspiel, Strafstoß-Regeln.',
     },
     description: 'Lass dir 10 Regelfragen stellen – von Trainer, Eltern oder Mitspielern.',
     steps: ['10 Fragen beantworten.', 'Richtige Antworten zählen.'],
-    tips: ['Profis kennen die Regeln besser als man denkt.'],
+    tips: ['Profis kennen die Regeln besser, als man denkt.'],
     equipment: 'Fragensteller',
+    minutes: 10,
+  },
+  // ───────────── Neu: Aufwärmen, Spielformen, Torwart, Mental, Ernährung ─────────────
+  {
+    id: 'aufwaermen',
+    title: 'Aufwärmen (FIFA 11+ Kids)',
+    category: 'athletik',
+    emoji: '🔥',
+    minGroup: 'E',
+    measure: 'check',
+    unit: 'erledigt',
+    base: { bronze: 1, silber: 1, gold: 1 },
+    variant: {
+      bronze: '10 Minuten: lockeres Laufen, Hopserlauf, Seitgalopp, Kniehebelauf.',
+      silber: 'Dazu Sprung- und Landeübungen: weich landen, Knie über dem Fuß.',
+      gold: 'Komplettes Programm (FIFA 11+ Kids bzw. ab C-Jugend 11+) mit Gleichgewicht und Stützübungen.',
+    },
+    description: 'Gutes Aufwärmen senkt das Verletzungsrisiko deutlich. Pflicht vor Sprints, Athletik und Torschuss.',
+    steps: ['Mit lockerem Laufen beginnen, dann schneller werden.', 'Übungen für deinen Stärkegrad machen.', 'Erst danach Sprints oder Schüsse.'],
+    tips: ['Lieber 10 Minuten aufwärmen als 2 Wochen verletzt.', 'Im Winter länger aufwärmen.'],
+    equipment: 'Platz zum Laufen',
+    minutes: 10,
+  },
+  {
+    id: 'rondo',
+    title: 'Rondo 4-gegen-1',
+    category: 'passen',
+    emoji: '🔄',
+    minGroup: 'E',
+    measure: 'count',
+    unit: 'Pässe in Folge',
+    base: { bronze: 5, silber: 8, gold: 12 },
+    variant: {
+      bronze: 'Feld 8×8 m, zwei Kontakte erlaubt.',
+      silber: 'Feld 7×7 m, zwei Kontakte.',
+      gold: 'Feld 6×6 m, nur Direktpässe.',
+    },
+    description: 'Vier passen sich den Ball zu, einer in der Mitte jagt ihn. Die beliebteste Übung der Profis.',
+    steps: ['Feld mit 4 Hütchen markieren.', 'Pässe in Folge zählen, bis die Mitte den Ball berührt.', 'Wer den Fehler macht, geht in die Mitte.'],
+    tips: ['Vor dem Pass schauen, wo die Mitte steht.', 'Offen zum Spiel stehen.'],
+    equipment: 'Ball, 4 Hütchen, 4 Mitspieler*innen',
+    minutes: 15,
+  },
+  {
+    id: 'torwart-fangen',
+    title: 'Torwart: Bälle fangen',
+    category: 'torwart',
+    emoji: '🧤',
+    minGroup: 'E',
+    measure: 'hits',
+    unit: 'sicher gefangene Bälle von 10',
+    noScale: true,
+    base: { bronze: 5, silber: 7, gold: 9 },
+    variant: {
+      bronze: 'Bälle in Brusthöhe zugeworfen – mit der „Körbchen“- oder „W“-Haltung fangen.',
+      silber: 'Flach und hoch geschossene Bälle, abwechselnd.',
+      gold: 'Geschossene Bälle in die Ecken, danach schnell wieder in Grundstellung.',
+    },
+    description: 'Sicheres Fangen ist die wichtigste Torwart-Technik. Ein gefangener Ball ist besser als ein abgewehrter.',
+    steps: ['Partner wirft oder schießt aus dem angegebenen Abstand.', '10 Bälle, sicher gefangene zählen.', 'Abprallende Bälle zählen nicht.'],
+    tips: ['Daumen bilden beim hohen Ball ein „W“.', 'Ball immer zum Körper ziehen.'],
+    equipment: 'Ball, Torwarthandschuhe, Partner',
+    minutes: 15,
+  },
+  {
+    id: 'torwart-fallschule',
+    title: 'Torwart: Fallschule',
+    category: 'torwart',
+    emoji: '🤸',
+    minGroup: 'E',
+    measure: 'check',
+    unit: 'erledigt',
+    base: { bronze: 1, silber: 1, gold: 1 },
+    variant: {
+      bronze: 'Aus dem Knien zur Seite fallen, Ball festhalten – 10× pro Seite, auf weichem Boden.',
+      silber: 'Aus der Hocke seitlich fallen, 10× pro Seite.',
+      gold: 'Aus dem Stand nach einem kurzen Schritt hechten, 8× pro Seite – nur mit Trainer*in.',
+    },
+    description: 'Richtig fallen schützt vor Verletzungen und macht dich mutiger im Tor.',
+    steps: ['Nur auf Rasen oder Matte.', 'Seitlich über Hüfte und Schulter abrollen, nicht auf den Ellbogen fallen.', 'Ball dabei festhalten.'],
+    tips: ['Langsam beginnen.', 'Nie auf hartem Boden üben.'],
+    equipment: 'Ball, Rasen oder Matte',
+    minutes: 10,
+  },
+  {
+    id: 'mental-routine',
+    title: 'Mental: Ziel und Routine',
+    category: 'kopf',
+    emoji: '🧘',
+    minGroup: 'E',
+    measure: 'check',
+    unit: 'erledigt',
+    base: { bronze: 1, silber: 1, gold: 1 },
+    variant: {
+      bronze: 'Vor dem Training ein kleines Ziel für heute festlegen und danach prüfen.',
+      silber: 'Atem-Routine vor dem Spiel: 4 Sekunden ein, 4 Sekunden aus, 5×.',
+      gold: 'Nach einem Fehler ein eigenes Signal nutzen (z. B. Klatschen + „Weiter!“) und im Tagebuch notieren, wie es geklappt hat.',
+    },
+    description: 'Starke Spieler*innen haben einen starken Kopf: Ziele setzen, ruhig bleiben, Fehler schnell abhaken.',
+    steps: ['Aufgabe für deinen Stärkegrad machen.', 'Kurz im Tagebuch festhalten, wie es lief.'],
+    tips: ['Fehler gehören dazu – wichtig ist die nächste Aktion.', 'Sprich mit dir selbst wie mit einem guten Freund.'],
+    equipment: 'Tagebuch',
+    minutes: 5,
+  },
+  {
+    id: 'spieltag-essen',
+    title: 'Spieltag: richtig essen und trinken',
+    category: 'kopf',
+    emoji: '🍌',
+    minGroup: 'E',
+    measure: 'check',
+    unit: 'erledigt',
+    base: { bronze: 1, silber: 1, gold: 1 },
+    variant: {
+      bronze: 'Frühstück gegessen und vor dem Spiel Wasser getrunken.',
+      silber: '2–3 Stunden vor dem Spiel eine richtige Mahlzeit, 30–60 Minuten vorher eine Banane.',
+      gold: 'Dazu nach dem Spiel innerhalb einer Stunde etwas essen und trinken – und keine Energy-Drinks.',
+    },
+    description: 'Dein Körper braucht Energie. Was du isst, merkst du auf dem Platz.',
+    steps: ['Aufgabe für deinen Stärkegrad umsetzen.', 'Im Tagebuch kurz notieren, wie du dich gefühlt hast.'],
+    tips: ['Wasser ist das beste Getränk.', 'Keine Energy-Drinks und keine Nahrungsergänzungsmittel.'],
+    equipment: '–',
+    minutes: 5,
+  },
+  {
+    id: 'kopfball-dosiert',
+    title: 'Kopfball (dosiert)',
+    category: 'schiessen',
+    emoji: '🎯',
+    minGroup: 'C',
+    measure: 'hits',
+    unit: 'Treffer ins Ziel von 10',
+    noScale: true,
+    base: { bronze: 4, silber: 6, gold: 8 },
+    variant: {
+      bronze: 'Leichten Ball (z. B. Softball oder leicht aufgepumpt) selbst hochwerfen und mit der Stirn zum Partner köpfen.',
+      silber: 'Zugeworfene Bälle mit der Stirn in ein Ziel köpfen.',
+      gold: 'Zugeworfene Bälle aus dem Sprung ins Ziel köpfen.',
+    },
+    description: 'Kopfball mit wenigen Wiederholungen und leichtem Ball – so empfiehlt es der DFB für den Nachwuchs.',
+    steps: ['Höchstens 10 Kopfbälle pro Einheit.', 'Nur mit der Stirn, Augen offen, Mund zu.', 'Treffer im Ziel zählen.'],
+    tips: ['Qualität statt Menge.', 'Bei Kopfschmerzen sofort aufhören und Bescheid sagen.'],
+    equipment: 'Leichter Ball, Partner',
     minutes: 10,
   },
 ];
 
-export const DAILY_TIPS: { text: string; minGroup?: 'E' | 'D' | 'C' | 'B' | 'A' }[] = [
+export const DAILY_TIPS: { text: string; minGroup?: 'E' | 'D' | 'C' | 'B' | 'A'; maxGroup?: 'E' | 'D' | 'C' | 'B' | 'A' }[] = [
   { text: 'Trink vor, während und nach dem Training Wasser – auch wenn du keinen Durst hast.' },
-  { text: 'Schlaf ist Training für deinen Körper: 9–10 Stunden helfen dir, besser zu werden.' },
+  { text: 'Schlaf ist Training für deinen Körper: 9–12 Stunden helfen dir, besser zu werden.', maxGroup: 'D' },
+  { text: 'Schlaf ist Training für deinen Körper: 8–10 Stunden helfen dir, besser zu werden.', minGroup: 'C' },
   { text: 'Jeden Tag 5 Minuten schwacher Fuß bringen mehr als einmal pro Woche eine Stunde.' },
   { text: 'Fehler gehören dazu. Wer nichts versucht, macht auch keine Fortschritte.' },
   { text: 'Vor jeder Ballannahme kurz umschauen – so weißt du, wo Platz ist.' },
   { text: 'Fairplay: Gib dem Gegner nach dem Spiel die Hand, egal wie es ausgeht.' },
-  { text: 'Eine Banane oder Vollkornbrot 1–2 Stunden vor dem Training gibt dir Energie.' },
-  { text: 'Lobe deine Mitspieler – ein gutes Team macht jeden Einzelnen besser.' },
-  { text: 'Dehnen nach dem Training hilft deinem Körper bei der Erholung.', minGroup: 'D' },
+  { text: 'Eine Banane 30–60 Minuten vor dem Training gibt dir schnelle Energie. Eine richtige Mahlzeit lieber 2–3 Stunden vorher.' },
+  { text: 'Lobe deine Mitspieler*innen – ein gutes Team macht jeden Einzelnen besser.' },
+  { text: 'Vor Sprints und Schüssen immer aufwärmen – das schützt vor Verletzungen.' },
+  { text: 'Ruhetage gehören zum Training. Dein Körper wird in der Pause stärker.' },
+  { text: 'Nach dem Training locker auslaufen. Erholung kommt vor allem durch Schlaf, Essen und Trinken.', minGroup: 'D' },
   { text: 'Setz dir für jede Woche ein kleines, klares Ziel und schreib es ins Tagebuch.', minGroup: 'D' },
+  { text: 'Kraftübungen mit dem eigenen Körper sind gut – Technik vor Gewicht.', minGroup: 'D' },
   { text: 'Handy eine Stunde vor dem Schlafen weglegen – dein Körper erholt sich besser.', minGroup: 'C' },
-  { text: 'Krafttraining nur mit Anleitung von Trainern – Technik vor Gewicht.', minGroup: 'B' },
   { text: 'Schule und Fußball gehören zusammen: Ein Plan für die Woche hilft bei beidem.', minGroup: 'C' },
+  { text: 'Schmerzen sind ein Warnsignal. Sag Eltern oder Trainer*in Bescheid, statt weiterzuspielen.' },
 ];

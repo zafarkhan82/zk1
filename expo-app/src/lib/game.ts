@@ -12,6 +12,7 @@ export function levelXp(level: Level) {
 
 /** Punkte für eine Übung: Basis je Stärkegrad, +50 % bei erreichtem Ziel, doppelte Basis bei Trainer-Bestätigung. */
 export function logXp(log: ExerciseLog) {
+  if (log.status === 'rejected') return 0;
   const base = levelXp(log.level);
   let xp = base;
   if (log.achieved) xp += Math.round(base / 2);
@@ -37,13 +38,13 @@ export function confirmedXp(state: AppState) {
 // ───────────── Spieler-Level ─────────────
 
 const TITLES: { from: number; title: string }[] = [
-  { from: 1, title: 'Talent' },
-  { from: 3, title: 'Kicker' },
-  { from: 5, title: 'Stammspieler' },
-  { from: 8, title: 'Leistungsträger' },
-  { from: 11, title: 'Kapitän' },
-  { from: 15, title: 'Auswahlspieler' },
-  { from: 20, title: 'Top-Talent' },
+  { from: 1, title: 'Rookie' },
+  { from: 3, title: 'Techniker' },
+  { from: 5, title: 'Ballkünstler' },
+  { from: 8, title: 'Spielmacher' },
+  { from: 11, title: 'Stratege' },
+  { from: 15, title: 'Meister' },
+  { from: 20, title: 'Legende' },
 ];
 
 /** XP, die man insgesamt braucht, um ein Level zu erreichen (Level 1 = 0). */
@@ -130,6 +131,16 @@ export function streak(state: AppState, now = new Date()) {
   return count;
 }
 
+/** Meiste aktive Tage innerhalb einer Kalenderwoche. */
+export function bestWeek(state: AppState) {
+  const perWeek = new Map<string, number>();
+  activeDays(state).forEach((d) => {
+    const k = weekKey(new Date(d + 'T12:00:00'));
+    perWeek.set(k, (perWeek.get(k) ?? 0) + 1);
+  });
+  return Math.max(0, ...perWeek.values());
+}
+
 /** Montag 00:00 der Woche, in der `now` liegt. */
 export function weekStart(now = new Date()) {
   const d = new Date(now);
@@ -144,9 +155,11 @@ export function weekKey(now = new Date()) {
 }
 
 function inWeek(date: string, now: Date) {
-  const start = weekStart(now).getTime();
+  const start = weekStart(now);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7); // kalendarisch – robust bei Zeitumstellung
   const t = new Date(date).getTime();
-  return t >= start && t < start + 7 * 86400000;
+  return t >= start.getTime() && t < end.getTime();
 }
 
 // ───────────── Wochen-Challenges ─────────────
@@ -222,14 +235,14 @@ export function badges(state: AppState, group: AgeGroup): Badge[] {
   const cats = new Set(logs.map((l) => getExercise(l.exerciseId)?.category));
   return [
     { id: 'start', emoji: '⚽', title: 'Anstoß', description: 'Erste Übung eingetragen', earned: logs.length >= 1 },
-    { id: 'tagebuch', emoji: '📓', title: 'Schreiberling', description: '10 Tagebucheinträge', earned: state.diary.length >= 10 },
+    { id: 'tagebuch', emoji: '📓', title: 'Schreib-Profi', description: '10 Tagebucheinträge', earned: state.diary.length >= 10 },
     { id: 'serie3', emoji: '🔥', title: 'Am Ball', description: '3 Tage in Folge aktiv', earned: s >= 3 },
-    { id: 'serie7', emoji: '🌟', title: 'Wochen-Held', description: '7 Tage in Folge aktiv', earned: s >= 7 },
-    { id: 'allrounder', emoji: '🧩', title: 'Allrounder', description: 'Übungen aus allen 7 Bereichen', earned: cats.size >= CATEGORIES.length },
+    { id: 'woche5', emoji: '🌟', title: 'Fleißige Woche', description: '5 aktive Tage in einer Woche (Ruhetage sind okay!)', earned: bestWeek(state) >= 5 },
+    { id: 'allrounder', emoji: '🧩', title: 'Allrounder', description: 'Übungen aus 7 Bereichen', earned: cats.size >= 7 },
     { id: 'gold', emoji: '🥇', title: 'Gold!', description: 'Erstes Gold-Ziel geschafft', earned: golds >= 1 },
     { id: 'gold10', emoji: '🏆', title: 'Goldsammler', description: '10 Gold-Ziele geschafft', earned: golds >= 10 },
     { id: 'trainer', emoji: '✅', title: 'Bestätigt', description: 'Erste Trainer-Bestätigung', earned: confirmed >= 1 },
-    { id: 'trainer10', emoji: '📜', title: 'Geprüfte Qualität', description: '10 Trainer-Bestätigungen', earned: confirmed >= 10 },
+    { id: 'trainer10', emoji: '📜', title: 'Trainer-Profi', description: '10 Trainer-Bestätigungen', earned: confirmed >= 10 },
     { id: 'skill50', emoji: '📈', title: 'Aufsteiger', description: 'Ein Skill über 50', earned: Object.values(scores).some((v) => v >= 50) },
   ];
 }

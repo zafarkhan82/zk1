@@ -30,7 +30,9 @@ export default function Home() {
   const rotated = [...all.slice(seed), ...all.slice(0, seed)];
   const suggestions = rotated.filter((e) => bestLevel(state.logs, e.id) !== 'gold').slice(0, 3);
 
-  const tips = DAILY_TIPS.filter((t) => !t.minGroup || groupIndex(t.minGroup) <= groupIndex(group));
+  const tips = DAILY_TIPS.filter(
+    (t) => (!t.minGroup || groupIndex(t.minGroup) <= groupIndex(group)) && (!t.maxGroup || groupIndex(group) <= groupIndex(t.maxGroup)),
+  );
   const tip = tips[Number(today.replace(/-/g, '')) % tips.length];
 
   const challenges = weeklyChallenges();

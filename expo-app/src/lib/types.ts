@@ -9,7 +9,8 @@ export type Category =
   | 'schiessen'
   | 'koordination'
   | 'athletik'
-  | 'kopf';
+  | 'kopf'
+  | 'torwart';
 
 export type Position = 'Tor' | 'Abwehr' | 'Mittelfeld' | 'Sturm' | 'Noch offen';
 
