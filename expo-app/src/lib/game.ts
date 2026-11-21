@@ -15,7 +15,7 @@ export function logXp(log: ExerciseLog) {
   const base = levelXp(log.level);
   let xp = base;
   if (log.achieved) xp += Math.round(base / 2);
-  if (log.confirmation) xp += base;
+  if (log.status === 'confirmed') xp += base;
   return xp;
 }
 
@@ -31,7 +31,7 @@ export function totalXp(state: AppState) {
 
 /** Nur trainer-bestätigte Leistungen zählen für Ranglisten. */
 export function confirmedXp(state: AppState) {
-  return state.logs.filter((l) => l.confirmation).reduce((s, l) => s + logXp(l), 0);
+  return state.logs.filter((l) => l.status === 'confirmed').reduce((s, l) => s + logXp(l), 0);
 }
 
 // ───────────── Spieler-Level ─────────────
@@ -87,7 +87,7 @@ export function skillScores(state: AppState, group: AgeGroup): Record<Category, 
     for (const e of ex) {
       const b = bestLevel(state.logs, e.id);
       if (b) sum += LEVEL_SCORE[b];
-      const confirmed = state.logs.some((l) => l.exerciseId === e.id && l.achieved && l.confirmation);
+      const confirmed = state.logs.some((l) => l.exerciseId === e.id && l.achieved && l.status === 'confirmed');
       if (confirmed) sum += 0.5;
     }
     result[cat.id] = Math.min(99, Math.round((sum / (ex.length * 3.5)) * 99));
@@ -168,7 +168,7 @@ export const CHALLENGE_POOL: Challenge[] = [
   { id: 'fleissig', emoji: '🔥', title: 'Fleißig', description: 'Trage 5 Übungen ein.', target: 5, xp: 40, progress: (l) => l.length },
   { id: 'tagebuch3', emoji: '📓', title: 'Tagebuch-Profi', description: 'Schreibe 3 Tagebucheinträge.', target: 3, xp: 30, progress: (_, d) => d.length },
   { id: 'gold1', emoji: '🥇', title: 'Goldener Moment', description: 'Schaffe ein Gold-Ziel.', target: 1, xp: 50, progress: (l) => l.filter((x) => x.level === 'gold' && x.achieved).length },
-  { id: 'bestaetigt', emoji: '✅', title: 'Vom Trainer gesehen', description: 'Lass 1 Leistung vom Trainer bestätigen.', target: 1, xp: 50, progress: (l) => l.filter((x) => x.confirmation).length },
+  { id: 'bestaetigt', emoji: '✅', title: 'Vom Trainer gesehen', description: 'Lass 1 Leistung vom Trainer bestätigen.', target: 1, xp: 50, progress: (l) => l.filter((x) => x.status === 'confirmed').length },
   { id: 'technik', emoji: '🎯', title: 'Ballzauberer', description: '3 Übungen Ballkontrolle oder Dribbling.', target: 3, xp: 35, progress: (l) => catCount('ballkontrolle')(l) + catCount('dribbling')(l) },
   { id: 'schuss', emoji: '🥅', title: 'Torjäger', description: '2 Schuss-Übungen.', target: 2, xp: 30, progress: catCount('schiessen') },
   { id: 'athlet', emoji: '💪', title: 'Athlet', description: '2 Athletik- oder Koordinations-Übungen.', target: 2, xp: 30, progress: (l) => catCount('athletik')(l) + catCount('koordination')(l) },
@@ -216,8 +216,7 @@ export interface Badge {
 export function badges(state: AppState, group: AgeGroup): Badge[] {
   const logs = state.logs;
   const golds = logs.filter((l) => l.level === 'gold' && l.achieved).length;
-  const confirmed = logs.filter((l) => l.confirmation).length;
-  const nlz = logs.some((l) => l.confirmation?.role === 'NLZ-Trainer');
+  const confirmed = logs.filter((l) => l.status === 'confirmed').length;
   const s = streak(state);
   const scores = skillScores(state, group);
   const cats = new Set(logs.map((l) => getExercise(l.exerciseId)?.category));
@@ -231,7 +230,6 @@ export function badges(state: AppState, group: AgeGroup): Badge[] {
     { id: 'gold10', emoji: '🏆', title: 'Goldsammler', description: '10 Gold-Ziele geschafft', earned: golds >= 10 },
     { id: 'trainer', emoji: '✅', title: 'Bestätigt', description: 'Erste Trainer-Bestätigung', earned: confirmed >= 1 },
     { id: 'trainer10', emoji: '📜', title: 'Geprüfte Qualität', description: '10 Trainer-Bestätigungen', earned: confirmed >= 10 },
-    { id: 'nlz', emoji: '🏟️', title: 'NLZ-geprüft', description: 'Bestätigung durch NLZ-Trainer', earned: nlz },
     { id: 'skill50', emoji: '📈', title: 'Aufsteiger', description: 'Ein Skill über 50', earned: Object.values(scores).some((v) => v >= 50) },
   ];
 }

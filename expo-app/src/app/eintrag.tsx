@@ -5,6 +5,7 @@ import { Button, Card, Chip, Field, Screen, T, Wrap } from '@/components/ui';
 import { DIARY_TYPES, MOODS } from '@/data/diary';
 import { DIARY_XP } from '@/lib/game';
 import { useStore } from '@/lib/store';
+import { errorText } from '@/lib/supabase';
 import type { DiaryEntry, DiaryType } from '@/lib/types';
 
 const MINUTES = [0, 15, 30, 45, 60, 75, 90, 120];
@@ -17,9 +18,20 @@ export default function NewEntry() {
   const [good, setGood] = useState('');
   const [improve, setImprove] = useState('');
 
-  const save = () => {
-    addDiary({ type, minutes, mood, good: good.trim(), improve: improve.trim() });
-    router.back();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await addDiary({ type, minutes, mood, good: good.trim(), improve: improve.trim() });
+      router.back();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -50,7 +62,11 @@ export default function NewEntry() {
         <Field label="Das will ich verbessern 🎯" placeholder="z. B. Mehr mit links schießen" value={improve} onChangeText={setImprove} multiline maxLength={300} />
       </Card>
 
-      <Button title={`Speichern (+${DIARY_XP} XP)`} onPress={save} />
+      {!!error && <T size={14}>{error}</T>}
+      <Button title={busy ? 'Speichere …' : `Speichern (+${DIARY_XP} XP)`} onPress={save} disabled={busy} />
+      <T size={12} color="textSecondary">
+        Tagebucheinträge werden dauerhaft gespeichert und können nicht gelöscht werden.
+      </T>
     </Screen>
   );
 }

@@ -13,25 +13,17 @@ export type Category =
 
 export type Position = 'Tor' | 'Abwehr' | 'Mittelfeld' | 'Sturm' | 'Noch offen';
 
-export interface Profile {
+export interface Player {
+  id: string;
   nickname: string;
   birthYear: number;
   position: Position;
-  club: string;
-  parentConsent: boolean;
-  createdAt: string;
+  /** true = Elternkonto verwaltet das Kind, false = eigenes Konto (ab 16) */
+  managedByGuardian: boolean;
+  publicConsent: boolean;
 }
 
-export type TrainerRole = 'Vereinstrainer' | 'NLZ-Trainer';
-
-export interface Confirmation {
-  trainerName: string;
-  club: string;
-  role: TrainerRole;
-  license: string;
-  comment: string;
-  date: string;
-}
+export type EntryStatus = 'pending' | 'confirmed' | 'rejected';
 
 export interface ExerciseLog {
   id: string;
@@ -42,7 +34,9 @@ export interface ExerciseLog {
   achieved: boolean;
   note: string;
   date: string;
-  confirmation?: Confirmation;
+  status: EntryStatus;
+  /** Trainer-Bestätigung wurde angefragt */
+  requested: boolean;
 }
 
 export type DiaryType = 'training' | 'spiel' | 'allein' | 'frei';
@@ -57,11 +51,20 @@ export interface DiaryEntry {
   improve: string;
 }
 
+export interface TeamInfo {
+  memberId: string;
+  teamId: string;
+  teamName: string;
+  clubName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  jerseyNumber: number | null;
+}
+
+/** Daten des gerade gewählten Spielers */
 export interface AppState {
-  version: 1;
-  profile: Profile | null;
+  profile: Player | null;
   logs: ExerciseLog[];
   diary: DiaryEntry[];
-  /** Eingelöste Wochen-Challenges, Schlüssel: "<woche>:<challengeId>" */
+  /** Eingelöste Wochen-Challenges, Schlüssel: "<woche>:<challengeId>" (nur auf dem Gerät) */
   claimed: string[];
 }

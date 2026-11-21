@@ -5,12 +5,15 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { AuthProvider, useAuth } from '@/lib/auth';
 import { StoreProvider, useStore } from '@/lib/store';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootStack() {
-  const { ready } = useStore();
+  const auth = useAuth();
+  const store = useStore();
+  const ready = auth.ready && (!auth.session || store.ready);
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const c = Colors[scheme];
 
@@ -30,10 +33,12 @@ function RootStack() {
         headerBackTitle: 'Zurück',
       }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="onboarding" options={{ title: 'Spieler anlegen' }} />
       <Stack.Screen name="uebung/[id]" options={{ title: 'Übung' }} />
       <Stack.Screen name="eintrag" options={{ title: 'Neuer Tagebucheintrag', presentation: 'modal' }} />
-      <Stack.Screen name="bestaetigen" options={{ title: 'Trainer-Bestätigung', presentation: 'modal' }} />
+      <Stack.Screen name="premium" options={{ title: 'Premium', presentation: 'modal' }} />
+      <Stack.Screen name="team" options={{ title: 'Mein Team' }} />
     </Stack>
   );
 }
@@ -42,9 +47,11 @@ export default function RootLayout() {
   const scheme = useColorScheme();
   return (
     <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <StoreProvider>
-        <RootStack />
-      </StoreProvider>
+      <AuthProvider>
+        <StoreProvider>
+          <RootStack />
+        </StoreProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

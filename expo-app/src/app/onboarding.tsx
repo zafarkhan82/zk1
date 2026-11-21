@@ -4,51 +4,67 @@ import { View } from 'react-native';
 
 import { Button, Card, Checkbox, Chip, Field, Screen, T, Wrap } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, ageGroupFor, allowedBirthYears, uClass } from '@/lib/age';
 import { useStore } from '@/lib/store';
+import { errorText } from '@/lib/supabase';
 import type { Position } from '@/lib/types';
 
 const POSITIONS: Position[] = ['Tor', 'Abwehr', 'Mittelfeld', 'Sturm', 'Noch offen'];
 
-export default function Onboarding() {
-  const { setProfile } = useStore();
+export default function CreatePlayer() {
+  const { createPlayer, players } = useStore();
+  const theme = useTheme();
+  const [forSelf, setForSelf] = useState(false);
   const [nickname, setNickname] = useState('');
   const [birthYear, setBirthYear] = useState<number | null>(null);
   const [position, setPosition] = useState<Position>('Noch offen');
-  const [club, setClub] = useState('');
   const [consent, setConsent] = useState(false);
+  const [publicConsent, setPublicConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const group = birthYear ? ageGroupFor(birthYear) : null;
-  const valid = nickname.trim().length >= 2 && group !== null && consent;
+  const u = birthYear ? uClass(birthYear) : 0;
+  const selfTooYoung = forSelf && birthYear !== null && u < 16;
+  const valid = nickname.trim().length >= 2 && group !== null && consent && !selfTooYoung;
 
-  const submit = () => {
+  const submit = async () => {
     if (!valid || !birthYear) return;
-    setProfile({
-      nickname: nickname.trim(),
-      birthYear,
-      position,
-      club: club.trim(),
-      parentConsent: consent,
-      createdAt: new Date().toISOString(),
-    });
-    router.replace('/');
+    setBusy(true);
+    setError('');
+    try {
+      await createPlayer({ nickname: nickname.trim(), birthYear, position, forSelf, publicConsent });
+      router.replace('/');
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <Screen bottomBar={false}>
-      <View style={{ alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four }}>
-        <T size={56}>⚽</T>
-        <T size={30} weight="800" style={{ textAlign: 'center' }}>
-          Kick-Tagebuch
-        </T>
-        <T color="textSecondary" style={{ textAlign: 'center' }}>
-          Trainiere, sammle Punkte und lass deine Leistungen vom Trainer bestätigen.
-        </T>
-      </View>
+    <Screen bottomBar={false} topInset={false}>
+      {players.length === 0 && (
+        <View style={{ gap: Spacing.one }}>
+          <T size={24} weight="800">
+            Willkommen! 👋
+          </T>
+          <T color="textSecondary">Lege jetzt den Spieler an, dessen Entwicklung ihr festhalten wollt.</T>
+        </View>
+      )}
+
+      <Card>
+        <T weight="700">Für wen ist das Profil?</T>
+        <Wrap>
+          <Chip label="👨‍👩‍👧 Mein Kind" selected={!forSelf} onPress={() => setForSelf(false)} />
+          <Chip label="🙋 Für mich (ab 16)" selected={forSelf} onPress={() => setForSelf(true)} />
+        </Wrap>
+      </Card>
 
       <Card>
         <Field
-          label="Dein Spitzname"
+          label="Spitzname"
           placeholder="z. B. Flitzer10"
           value={nickname}
           onChangeText={setNickname}
@@ -56,12 +72,12 @@ export default function Onboarding() {
           autoCapitalize="none"
         />
         <T size={12} color="textSecondary">
-          Bitte nicht deinen echten vollen Namen verwenden.
+          Der Spitzname ist in Ranglisten sichtbar. Bitte keinen vollen echten Namen verwenden.
         </T>
       </Card>
 
       <Card>
-        <T weight="700">Dein Jahrgang</T>
+        <T weight="700">Jahrgang</T>
         <Wrap>
           {allowedBirthYears().map((y) => (
             <Chip key={y} label={String(y)} selected={birthYear === y} onPress={() => setBirthYear(y)} />
@@ -69,7 +85,12 @@ export default function Onboarding() {
         </Wrap>
         {birthYear && group && (
           <T color="textSecondary" size={14}>
-            Du spielst diese Saison {AGE_GROUP_LABEL[group]} (U{uClass(birthYear)}).
+            Spielt diese Saison {AGE_GROUP_LABEL[group]} (U{u}).
+          </T>
+        )}
+        {selfTooYoung && (
+          <T size={14} style={{ color: theme.danger }}>
+            Unter 16 muss ein Elternteil das Profil anlegen.
           </T>
         )}
       </Card>
@@ -81,23 +102,32 @@ export default function Onboarding() {
             <Chip key={p} label={p} selected={position === p} onPress={() => setPosition(p)} />
           ))}
         </Wrap>
-        <Field label="Verein (optional)" placeholder="z. B. SV Musterstadt" value={club} onChangeText={setClub} maxLength={40} />
       </Card>
 
       <Card>
-        <T weight="700">Für deine Eltern</T>
-        <T size={14} color="textSecondary">
-          Alle Daten bleiben nur auf diesem Gerät gespeichert. Es gibt keine Anmeldung, keine Fotos und keinen Kontakt zu
-          Fremden.
-        </T>
+        <T weight="700">{forSelf ? 'Einverständnis' : 'Einverständnis der Eltern'}</T>
         <Checkbox
           checked={consent}
           onChange={setConsent}
-          label="Ein Elternteil hat die App gesehen und ist einverstanden, dass ich sie nutze."
+          label={
+            forSelf
+              ? 'Ich stimme der Nutzung zu und habe die Datenschutzerklärung gelesen.'
+              : 'Ich bin erziehungsberechtigt und stimme zu, dass mein Kind die App nutzt.'
+          }
+        />
+        <Checkbox
+          checked={publicConsent}
+          onChange={setPublicConsent}
+          label="Optional: Spitzname, Jahrgang, Verein und bestätigte Leistungen dürfen öffentlich in Ranglisten erscheinen (nur mit Premium). Jederzeit widerrufbar."
         />
       </Card>
 
-      <Button title="Los geht's!" onPress={submit} disabled={!valid} />
+      {!!error && (
+        <T size={14} style={{ color: theme.danger }}>
+          {error}
+        </T>
+      )}
+      <Button title={busy ? 'Speichere …' : "Los geht's!"} onPress={submit} disabled={!valid || busy} />
     </Screen>
   );
 }

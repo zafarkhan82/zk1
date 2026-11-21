@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Share, View } from 'react-native';
 
 import { Button, Card, Progress, Row, Screen, SectionTitle, T } from '@/components/ui';
@@ -13,7 +14,7 @@ const TIERS = [
 ];
 
 export default function Challenges() {
-  const { state, claim } = useStore();
+  const { state, claim, premium } = useStore();
   const theme = useTheme();
   const week = weekKey();
   const list = weeklyChallenges();
@@ -108,9 +109,10 @@ export default function Challenges() {
           </Row>
         </Card>
       ))}
+      {!premium && <Button title="⭐ Mit Premium freischalten" onPress={() => router.push('/premium')} />}
       <T size={12} color="textSecondary">
-        Ranglisten kommen in einer späteren Version mit Online-Konten. Teilnahme nur mit Zustimmung der Eltern, mit Spitznamen und
-        ohne Fotos oder Kontaktdaten.
+        Die Ranglisten werden gerade aufgebaut. Teilnahme nur mit Premium und Zustimmung der Eltern, mit Spitznamen und ohne
+        Fotos oder Kontaktdaten.
       </T>
     </Screen>
   );

@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useState } from 'react';
-import { Alert, Platform, Share, View } from 'react-native';
+import { Share, View } from 'react-native';
 
 import { Button, Card, Chip, Field, Pill, Row, Screen, SectionTitle, T, Wrap } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -9,30 +9,21 @@ import { getExercise, isAchieved, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { bestLevel, formatDate, logXp } from '@/lib/game';
 import { useStore } from '@/lib/store';
+import { errorText } from '@/lib/supabase';
 import type { ExerciseLog, Level } from '@/lib/types';
-
-function confirmDialog(title: string, message: string, onYes: () => void) {
-  if (Platform.OS === 'web') {
-    // eslint-disable-next-line no-alert
-    if (typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`)) onYes();
-    return;
-  }
-  Alert.alert(title, message, [
-    { text: 'Abbrechen', style: 'cancel' },
-    { text: 'Löschen', style: 'destructive', onPress: onYes },
-  ]);
-}
 
 export default function ExerciseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const ex = getExercise(id);
-  const { state, group, addLog, deleteLog } = useStore();
+  const { state, group, premium, addLog, requestConfirmation } = useStore();
   const theme = useTheme();
   const best = ex ? bestLevel(state.logs, ex.id) : null;
   const [level, setLevel] = useState<Level>(best === 'gold' ? 'gold' : best === 'silber' ? 'gold' : best === 'bronze' ? 'silber' : 'bronze');
   const [value, setValue] = useState('');
   const [note, setNote] = useState('');
   const [result, setResult] = useState<ExerciseLog | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   if (!ex) {
     return (
@@ -48,13 +39,35 @@ export default function ExerciseScreen() {
   const parsed = ex.measure === 'check' ? null : numeric.trim() === '' ? NaN : Number(numeric);
   const canSave = ex.measure === 'check' || (parsed !== null && !Number.isNaN(parsed) && parsed >= 0);
 
-  const save = () => {
+  const save = async () => {
     if (!canSave) return;
-    const achieved = isAchieved(ex, level, group, parsed);
-    const log = addLog({ exerciseId: ex.id, level, value: parsed, achieved, note: note.trim() });
-    setResult(log);
-    setValue('');
-    setNote('');
+    setBusy(true);
+    setError('');
+    try {
+      const achieved = isAchieved(ex, level, group, parsed);
+      const log = await addLog({ exerciseId: ex.id, level, value: parsed, achieved, note: note.trim() });
+      setResult(log);
+      setValue('');
+      setNote('');
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const askTrainer = async (logId: string) => {
+    if (!premium) {
+      router.push('/premium');
+      return;
+    }
+    setError('');
+    try {
+      await requestConfirmation(logId);
+      if (result?.id === logId) setResult({ ...result, requested: true });
+    } catch (e) {
+      setError(errorText(e));
+    }
   };
 
   const challengeFriend = async (log: ExerciseLog) => {
@@ -143,7 +156,8 @@ export default function ExerciseScreen() {
           />
         )}
         <Field label="Notiz (optional)" placeholder="Wie lief's?" value={note} onChangeText={setNote} maxLength={200} />
-        <Button title={ex.measure === 'check' ? 'Als erledigt eintragen' : 'Speichern'} onPress={save} disabled={!canSave} />
+        <Button title={busy ? 'Speichere …' : ex.measure === 'check' ? 'Als erledigt eintragen' : 'Speichern'} onPress={save} disabled={!canSave || busy} />
+        {!!error && <T size={14} style={{ color: theme.danger }}>{error}</T>}
       </Card>
 
       {result && (
@@ -157,7 +171,13 @@ export default function ExerciseScreen() {
           <T size={14} color="textSecondary">
             Lass die Leistung von deinem Trainer bestätigen: Das bringt doppelte Basis-Punkte und zählt für die Ranglisten.
           </T>
-          <Button title="Trainer bestätigen lassen" onPress={() => router.push({ pathname: '/bestaetigen', params: { logId: result.id } })} />
+          {result.requested ? (
+            <T weight="700" style={{ color: theme.primary }}>
+              📨 Bestätigung angefragt
+            </T>
+          ) : (
+            <Button title={premium ? 'Trainer-Bestätigung anfragen' : '⭐ Trainer-Bestätigung (Premium)'} onPress={() => askTrainer(result.id)} />
+          )}
           <Button title="Freund herausfordern" variant="secondary" onPress={() => challengeFriend(result)} />
         </Card>
       )}
@@ -180,25 +200,25 @@ export default function ExerciseScreen() {
               „{l.note}“
             </T>
           )}
-          {l.confirmation ? (
+          {l.status === 'confirmed' ? (
             <T size={13} style={{ color: theme.primary }} weight="700">
-              ✔ Bestätigt von {l.confirmation.trainerName} ({l.confirmation.role}, {l.confirmation.club})
+              ✔ Von Spieler und Trainer bestätigt
+            </T>
+          ) : l.status === 'rejected' ? (
+            <T size={13} style={{ color: theme.danger }} weight="700">
+              ✖ Bestätigung abgelehnt
+            </T>
+          ) : l.requested ? (
+            <T size={13} color="textSecondary" weight="700">
+              📨 Bestätigung angefragt – wartet auf E-Mail-Bestätigung
             </T>
           ) : (
-            <Row>
-              <Button
-                title="Bestätigen lassen"
-                variant="secondary"
-                style={{ flex: 1, minHeight: 40 }}
-                onPress={() => router.push({ pathname: '/bestaetigen', params: { logId: l.id } })}
-              />
-              <Button
-                title="Löschen"
-                variant="danger"
-                style={{ minHeight: 40 }}
-                onPress={() => confirmDialog('Eintrag löschen?', 'Die Punkte dafür gehen verloren.', () => deleteLog(l.id))}
-              />
-            </Row>
+            <Button
+              title={premium ? 'Trainer-Bestätigung anfragen' : '⭐ Trainer-Bestätigung (Premium)'}
+              variant="secondary"
+              style={{ minHeight: 40 }}
+              onPress={() => askTrainer(l.id)}
+            />
           )}
         </Card>
       ))}

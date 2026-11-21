@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
 const TABS = [
@@ -15,11 +16,13 @@ const TABS = [
 ] as const;
 
 export default function TabLayout() {
-  const { state } = useStore();
+  const { session } = useAuth();
+  const { players } = useStore();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  if (!state.profile) return <Redirect href="/onboarding" />;
+  if (!session) return <Redirect href="/login" />;
+  if (players.length === 0) return <Redirect href="/onboarding" />;
 
   return (
     <Tabs>

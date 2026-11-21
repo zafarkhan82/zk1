@@ -1,62 +1,88 @@
 import { router } from 'expo-router';
-import { Alert, Platform, View } from 'react-native';
+import { useState } from 'react';
+import { View } from 'react-native';
 
-import { Button, Card, Progress, Row, Screen, SectionTitle, T, Wrap } from '@/components/ui';
+import { Button, Card, Checkbox, Chip, Progress, Row, Screen, SectionTitle, T, Wrap } from '@/components/ui';
 import { CATEGORIES } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, uClass } from '@/lib/age';
+import { useAuth } from '@/lib/auth';
 import { badges, confirmedXp, levelInfo, overall, skillScores, totalXp } from '@/lib/game';
 import { useStore } from '@/lib/store';
+import { errorText } from '@/lib/supabase';
 
 export default function ProfileScreen() {
-  const { state, group, resetAll } = useStore();
+  const { session, signOut } = useAuth();
+  const { state, group, players, premium, teams, selectPlayer, setPublicConsent } = useStore();
   const theme = useTheme();
+  const [error, setError] = useState('');
   const profile = state.profile!;
   const scores = skillScores(state, group);
   const xp = totalXp(state);
   const lvl = levelInfo(xp);
   const list = badges(state, group);
   const earned = list.filter((b) => b.earned).length;
-  const confirmations = state.logs.filter((l) => l.confirmation);
+  const confirmed = state.logs.filter((l) => l.status === 'confirmed').length;
+  const team = teams.find((t) => t.status === 'approved') ?? teams[0];
 
-  const reset = () => {
-    const doReset = () => {
-      resetAll();
-      router.replace('/onboarding');
-    };
-    const msg = 'Alle Einträge, Punkte und dein Profil werden auf diesem Gerät gelöscht.';
-    if (Platform.OS === 'web') {
-      // eslint-disable-next-line no-alert
-      if (typeof window !== 'undefined' && window.confirm(`Alles löschen?\n\n${msg}`)) doReset();
-      return;
+  const toggleConsent = async (v: boolean) => {
+    setError('');
+    try {
+      await setPublicConsent(v);
+    } catch (e) {
+      setError(errorText(e));
     }
-    Alert.alert('Alles löschen?', msg, [
-      { text: 'Abbrechen', style: 'cancel' },
-      { text: 'Löschen', style: 'destructive', onPress: doReset },
-    ]);
   };
 
   return (
     <Screen>
+      {players.length > 1 && (
+        <Wrap>
+          {players.map((p) => (
+            <Chip key={p.id} label={p.nickname} selected={p.id === profile.id} onPress={() => selectPlayer(p.id)} />
+          ))}
+        </Wrap>
+      )}
+
       <Card style={{ alignItems: 'center' }}>
         <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
           <T size={34} weight="800" color="primaryText">
             {overall(scores)}
           </T>
         </View>
-        <T size={24} weight="800">
-          {profile.nickname}
-        </T>
+        <Row>
+          <T size={24} weight="800">
+            {profile.nickname}
+          </T>
+          {premium && <T size={20}>⭐</T>}
+        </Row>
         <T color="textSecondary" size={14} style={{ textAlign: 'center' }}>
           {AGE_GROUP_LABEL[group]} (U{uClass(profile.birthYear)}) · {profile.position}
-          {profile.club ? ` · ${profile.club}` : ''}
+          {team ? ` · ${team.clubName}` : ''}
         </T>
         <T weight="700">
           Level {lvl.level} · {lvl.title} · {xp} XP
         </T>
       </Card>
 
-      <SectionTitle>Deine Skills</SectionTitle>
+      <Row>
+        <Card style={{ flex: 1 }} onPress={() => router.push('/team')}>
+          <T size={22}>👥</T>
+          <T weight="700">{team ? team.teamName : 'Team beitreten'}</T>
+          <T size={12} color="textSecondary">
+            {team ? (team.status === 'approved' ? team.clubName : 'wartet auf Trainer') : 'mit Code vom Trainer'}
+          </T>
+        </Card>
+        <Card style={{ flex: 1, borderColor: premium ? theme.primary : theme.accent }} onPress={() => router.push('/premium')}>
+          <T size={22}>⭐</T>
+          <T weight="700">{premium ? 'Premium aktiv' : 'Premium'}</T>
+          <T size={12} color="textSecondary">
+            {premium ? 'alle Funktionen' : '20 € / Jahr'}
+          </T>
+        </Card>
+      </Row>
+
+      <SectionTitle>Skills</SectionTitle>
       <Card>
         {CATEGORIES.map((c) => (
           <View key={c.id} style={{ gap: 4 }}>
@@ -71,9 +97,6 @@ export default function ProfileScreen() {
             <Progress value={scores[c.id] / 99} />
           </View>
         ))}
-        <T size={12} color="textSecondary">
-          Skills steigen, wenn du Ziele auf Bronze, Silber und Gold schaffst. Trainer-Bestätigungen geben extra Punkte.
-        </T>
       </Card>
 
       <SectionTitle right={<T color="textSecondary">{earned}/{list.length}</T>}>Abzeichen</SectionTitle>
@@ -94,21 +117,42 @@ export default function ProfileScreen() {
       <SectionTitle>Bestätigte Leistungen</SectionTitle>
       <Card>
         <T weight="700">
-          {confirmations.length} bestätigt · {confirmedXp(state)} Ranglisten-Punkte
+          {confirmed} bestätigt · {confirmedXp(state)} Ranglisten-Punkte
         </T>
-        {confirmations.slice(0, 5).map((l) => (
-          <T key={l.id} size={13} color="textSecondary">
-            ✔ {l.confirmation!.trainerName} ({l.confirmation!.role}) – {new Date(l.confirmation!.date).toLocaleDateString('de-DE')}
-          </T>
-        ))}
+        <T size={13} color="textSecondary">
+          Bestätigt heißt: Spieler bzw. Eltern und Trainer haben den Eintrag per E-Mail bestätigt.
+        </T>
       </Card>
 
-      <SectionTitle>Einstellungen</SectionTitle>
+      <SectionTitle>Privatsphäre</SectionTitle>
+      <Card>
+        <Checkbox
+          checked={profile.publicConsent}
+          onChange={toggleConsent}
+          label="In öffentlichen Ranglisten und in der Spielersuche zeigen (Spitzname, Jahrgang, Verein, bestätigte Leistungen). Nur mit Premium sichtbar."
+        />
+        {!profile.managedByGuardian && (
+          <T size={12} color="textSecondary">
+            Eigenes Spielerkonto (ab 16).
+          </T>
+        )}
+        {!!error && (
+          <T size={13} style={{ color: theme.danger }}>
+            {error}
+          </T>
+        )}
+      </Card>
+
+      <SectionTitle>Konto</SectionTitle>
       <Card>
         <T size={13} color="textSecondary">
-          Deine Daten sind nur auf diesem Gerät gespeichert. Wenn du die App löschst, sind sie weg.
+          Angemeldet als {session?.user.email}
         </T>
-        <Button title="Alles zurücksetzen" variant="danger" onPress={reset} />
+        <Button title="+ Weiteres Kind anlegen" variant="secondary" onPress={() => router.push('/onboarding')} />
+        <Button title="Abmelden" variant="danger" onPress={() => signOut()} />
+        <T size={12} color="textSecondary">
+          Einträge werden nie gelöscht. Auf Wunsch anonymisieren wir ein Profil vollständig (DSGVO) – schreib uns dazu.
+        </T>
       </Card>
     </Screen>
   );

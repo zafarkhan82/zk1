@@ -13,7 +13,7 @@ type Item =
   | { kind: 'log'; date: string; id: string };
 
 export default function Diary() {
-  const { state, deleteDiary } = useStore();
+  const { state } = useStore();
   const theme = useTheme();
 
   const start = weekStart().getTime();
@@ -85,7 +85,6 @@ export default function Diary() {
               </T>
               {!!d.good && <T size={14}>👍 {d.good}</T>}
               {!!d.improve && <T size={14}>🎯 {d.improve}</T>}
-              <Button title="Löschen" variant="danger" style={{ minHeight: 36, alignSelf: 'flex-end' }} onPress={() => deleteDiary(d.id)} />
             </Card>
           );
         }
@@ -104,7 +103,7 @@ export default function Diary() {
                 <T size={12} color="textSecondary">
                   {formatDate(l.date)} · {l.value !== null ? `${String(l.value).replace('.', ',')} ${ex.unit}` : 'erledigt'}
                   {l.achieved ? ' · Ziel ✅' : ''}
-                  {l.confirmation ? ' · vom Trainer bestätigt' : ''}
+                  {l.status === 'confirmed' ? ' · bestätigt ✔' : l.requested ? ' · Bestätigung angefragt' : ''}
                 </T>
               </View>
             </Row>
