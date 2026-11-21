@@ -6,8 +6,10 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.16';
 import QRCode from 'npm:qrcode@1.5.4';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
+// Nur eigene Web-Adressen dürfen die Funktion aus dem Browser aufrufen.
+const ALLOWED_ORIGINS = ['https://zafarkhan82.github.io', 'http://localhost:8081'];
+let cors: Record<string, string> = {
+  'Access-Control-Allow-Origin': ALLOWED_ORIGINS[0],
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
@@ -25,6 +27,8 @@ function epcPayload(holder: string, iban: string, bic: string, cents: number, re
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('Origin') ?? '';
+  cors = { ...cors, 'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0] };
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'Nur POST' }, 405);
 
@@ -56,7 +60,9 @@ Deno.serve(async (req) => {
     let emailError: string | null = null;
     const bankReady = !!order.bank_iban && !!order.bank_holder;
 
-    if (order.status === 'offen' && bankReady && (!stored?.email_sent_at || resend)) {
+    // Erneutes Senden höchstens alle 10 Minuten (Schutz vor Mail-Spam)
+    const recentlySent = stored?.email_sent_at && Date.now() - new Date(stored.email_sent_at).getTime() < 10 * 60 * 1000;
+    if (order.status === 'offen' && bankReady && (!stored?.email_sent_at || (resend && !recentlySent))) {
       try {
         const qrPng = await QRCode.toBuffer(
           epcPayload(order.bank_holder, order.bank_iban, order.bank_bic ?? '', order.amount_cents, order.reference),

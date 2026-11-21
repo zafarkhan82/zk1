@@ -38,8 +38,27 @@ export interface ExerciseLog {
   note: string;
   date: string;
   status: EntryStatus;
-  /** Trainer-Bestätigung wurde angefragt */
+  /** Ein Trainer ist für die Freigabe zugeordnet */
   requested: boolean;
+  /** Spielerseite (Eltern bzw. Spieler) hat bestätigt */
+  playerConfirmed: boolean;
+  /** Trainer hat freigegeben */
+  trainerConfirmed: boolean;
+}
+
+export interface StaffRow {
+  clubId: string;
+  clubName: string;
+  clubStatus: 'pending' | 'approved' | 'rejected';
+  role: 'trainer' | 'club_admin';
+  membershipStatus: 'pending' | 'approved' | 'rejected';
+  teamId: string | null;
+  teamName: string | null;
+  ageGroup: string | null;
+  season: string | null;
+  joinCode: string | null;
+  pendingMembers: number;
+  licenseUntil: string | null;
 }
 
 export type DiaryType = 'training' | 'spiel' | 'allein' | 'frei';

@@ -96,8 +96,9 @@ export function skillScores(state: AppState, group: AgeGroup): Record<Category, 
   return result;
 }
 
-export function overall(scores: Record<Category, number>) {
-  const vals = Object.values(scores);
+/** Gesamt-Skill; Torwart zählt nur für Torhüter*innen mit. */
+export function overall(scores: Record<Category, number>, goalkeeper = false) {
+  const vals = (Object.entries(scores) as [Category, number][]).filter(([c]) => goalkeeper || c !== 'torwart').map(([, v]) => v);
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 

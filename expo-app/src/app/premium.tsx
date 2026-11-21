@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 
-import { Button, Card, Row, Screen, T } from '@/components/ui';
+import { Button, Card, Field, Row, Screen, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useStore } from '@/lib/store';
@@ -15,14 +15,12 @@ const FREE = [
   'Spielberichte des eigenen Teams',
 ];
 
-const PREMIUM = [
-  'Stärkegrade Silber und Gold',
-  'Leistungen vom Trainer bestätigen lassen',
-  'Bewertungen durch Trainer',
-  'Bewertungen durch Mitspieler und Gegner',
-  'Challenges ab Silber',
-  'Challenges mit Spielern anderer Vereine',
-  'Öffentliche Ranglisten: lokal, regional, national, international',
+const PREMIUM: { text: string; soon?: boolean }[] = [
+  { text: 'Stärkegrade Silber und Gold' },
+  { text: 'Leistungen vom Trainer freigeben lassen' },
+  { text: 'Bewertungen durch den Trainer (Technik, Einsatz, Fairplay)' },
+  { text: 'Challenges ab Silber und mit Spielern anderer Vereine' },
+  { text: 'Öffentliche Ranglisten ab der C-Jugend: lokal bis international', soon: true },
 ];
 
 interface Order {
@@ -80,6 +78,10 @@ export default function Premium() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<Order | null>(null);
+  // Eltern-Hinweis: Kinder sollen nicht allein bezahlen
+  const [gateAnswer, setGateAnswer] = useState('');
+  const [gateOpen, setGateOpen] = useState(false);
+  const gateOk = gateAnswer.trim() === '56';
   const name = state.profile?.nickname ?? 'deinen Spieler';
 
   const startTransfer = async () => {
@@ -113,9 +115,34 @@ export default function Premium() {
           Go4Pro Premium
         </T>
         <T color="textSecondary" style={{ textAlign: 'center' }}>
-          Für {name}: zeig deine Leistung über das Team hinaus.
+          Für Eltern: Mehr Förderung für {name} – mit Trainer-Freigaben, Silber- und Gold-Zielen und Challenges.
         </T>
       </View>
+
+      <Card>
+        <T weight="700">⭐ Premium</T>
+        {PREMIUM.map((f) => (
+          <Row key={f.text} style={{ alignItems: 'flex-start' }}>
+            <T size={14}>⭐</T>
+            <T size={14} style={{ flex: 1 }}>
+              {f.text}
+              {f.soon ? ' (bald)' : ''}
+            </T>
+          </Row>
+        ))}
+      </Card>
+
+      <Card>
+        <T weight="700">Immer kostenlos (team-intern)</T>
+        {FREE.map((f) => (
+          <Row key={f} style={{ alignItems: 'flex-start' }}>
+            <T size={14}>✓</T>
+            <T size={14} style={{ flex: 1 }}>
+              {f}
+            </T>
+          </Row>
+        ))}
+      </Card>
 
       {premium ? (
         <Card style={{ borderColor: theme.primary, borderWidth: 2 }}>
@@ -129,8 +156,25 @@ export default function Premium() {
           <T size={36} weight="800">
             20 €
           </T>
-          <T color="textSecondary">pro Kind und Jahr</T>
-          <Button title={busy ? 'Einen Moment …' : 'Per Überweisung bezahlen'} onPress={startTransfer} disabled={busy} style={{ alignSelf: 'stretch' }} />
+          <T color="textSecondary">pro Kind und Jahr · keine automatische Verlängerung</T>
+          {!gateOpen ? (
+            <Button title="Für Eltern: weiter zur Bezahlung" onPress={() => setGateOpen(true)} style={{ alignSelf: 'stretch' }} />
+          ) : (
+            <View style={{ alignSelf: 'stretch', gap: Spacing.two }}>
+              <Field
+                label="Kurze Frage für Erwachsene: Wie viel ist 7 × 8?"
+                keyboardType="number-pad"
+                value={gateAnswer}
+                onChangeText={setGateAnswer}
+                maxLength={3}
+              />
+              <Button
+                title={busy ? 'Einen Moment …' : 'Per Überweisung bezahlen'}
+                onPress={startTransfer}
+                disabled={busy || !gateOk}
+              />
+            </View>
+          )}
           {!!error && (
             <T size={13} style={{ color: theme.danger, textAlign: 'center' }}>
               {error}
@@ -182,28 +226,12 @@ export default function Premium() {
         </Card>
       )}
 
-      <Card>
-        <T weight="700">⭐ Premium</T>
-        {PREMIUM.map((f) => (
-          <Row key={f} style={{ alignItems: 'flex-start' }}>
-            <T size={14}>⭐</T>
-            <T size={14} style={{ flex: 1 }}>
-              {f}
-            </T>
-          </Row>
-        ))}
-      </Card>
-
-      <Card>
-        <T weight="700">Immer kostenlos (team-intern)</T>
-        {FREE.map((f) => (
-          <Row key={f} style={{ alignItems: 'flex-start' }}>
-            <T size={14}>✓</T>
-            <T size={14} style={{ flex: 1 }}>
-              {f}
-            </T>
-          </Row>
-        ))}
+      <Card style={{ backgroundColor: theme.primarySoft, borderColor: theme.primarySoft }}>
+        <T weight="700">🏟️ Vereinslizenz</T>
+        <T size={14}>
+          Euer Verein kann eine Lizenz für die ganze Jugendabteilung buchen – dann ist Premium für alle Spieler*innen inklusive,
+          z. B. finanziert über Förderverein oder Sponsor. Sprich deine*n Jugendleiter*in an.
+        </T>
       </Card>
 
       <T size={12} color="textSecondary">

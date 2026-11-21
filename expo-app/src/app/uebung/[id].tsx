@@ -3,30 +3,41 @@ import { Stack } from 'expo-router/stack';
 import { useState } from 'react';
 import { Share, View } from 'react-native';
 
-import { Button, Card, Chip, Field, Pill, Row, Screen, SectionTitle, T, Wrap } from '@/components/ui';
+import { Celebration, type CelebrationInfo } from '@/components/celebration';
+import { Button, Card, Chip, Field, Pill, Row, Screen, SectionTitle, T, useLevelColors } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { getExercise, isAchieved, LEVELS, targetFor } from '@/data/exercises';
+import { CATEGORIES, distanceFor, getExercise, isAchieved, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
-import { bestLevel, formatDate, logXp } from '@/lib/game';
+import { bestLevel, formatDate, levelInfo, logXp, totalXp } from '@/lib/game';
 import { useStore } from '@/lib/store';
 import { errorText } from '@/lib/supabase';
 import type { ExerciseLog, Level } from '@/lib/types';
 
+function statusText(l: ExerciseLog): { text: string; tone: 'ok' | 'wait' | 'bad' | 'info' } {
+  if (l.status === 'confirmed') return { text: '✔ Vom Trainer freigegeben', tone: 'ok' };
+  if (l.status === 'rejected') return { text: '✖ Vom Trainer nicht freigegeben', tone: 'bad' };
+  if (!l.playerConfirmed) return { text: '📝 Vom Trainer eingetragen – bitte im Tagebuch bestätigen', tone: 'wait' };
+  if (l.requested) return { text: '⏳ Wartet auf Freigabe durch den Trainer', tone: 'wait' };
+  if (l.level !== 'bronze') return { text: 'ℹ️ Kein Trainer im Team – tritt einem Team bei, damit er freigeben kann', tone: 'info' };
+  return { text: 'Selbst erfasst', tone: 'info' };
+}
+
 export default function ExerciseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const ex = getExercise(id);
-  const { state, group, premium, addLog, requestConfirmation } = useStore();
+  const { state, group, premium, addLog } = useStore();
   const theme = useTheme();
+  const levelColors = useLevelColors();
   const best = ex ? bestLevel(state.logs, ex.id) : null;
   const [level, setLevel] = useState<Level>(
     !premium ? 'bronze' : best === 'gold' ? 'gold' : best === 'silber' ? 'gold' : best === 'bronze' ? 'silber' : 'bronze',
   );
-  const locked = !premium && level !== 'bronze';
   const [value, setValue] = useState('');
   const [note, setNote] = useState('');
-  const [result, setResult] = useState<ExerciseLog | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [lastLog, setLastLog] = useState<ExerciseLog | null>(null);
+  const [celebration, setCelebration] = useState<CelebrationInfo | null>(null);
 
   if (!ex) {
     return (
@@ -36,20 +47,35 @@ export default function ExerciseScreen() {
     );
   }
 
+  const locked = !premium && level !== 'bronze';
   const target = targetFor(ex, level, group);
+  const distance = distanceFor(ex, group);
   const logs = state.logs.filter((l) => l.exerciseId === ex.id);
   const numeric = value.replace(',', '.');
   const parsed = ex.measure === 'check' ? null : numeric.trim() === '' ? NaN : Number(numeric);
   const canSave = ex.measure === 'check' || (parsed !== null && !Number.isNaN(parsed) && parsed >= 0);
+  const cat = CATEGORIES.find((c) => c.id === ex.category);
 
   const save = async () => {
-    if (!canSave) return;
+    if (!canSave || locked) return;
     setBusy(true);
     setError('');
     try {
-      const achieved = isAchieved(ex, level, group, parsed);
-      const log = await addLog({ exerciseId: ex.id, level, value: parsed, achieved, note: note.trim() });
-      setResult(log);
+      const before = levelInfo(totalXp(state));
+      const prev = logs.filter((l) => l.level === level && l.value !== null).map((l) => l.value as number);
+      const log = await addLog({ exerciseId: ex.id, level, value: parsed, note: note.trim() });
+      const after = levelInfo(totalXp({ ...state, logs: [log, ...state.logs] }));
+      const personalBest =
+        parsed !== null && prev.length > 0 && (ex.lowerIsBetter ? parsed < Math.min(...prev) : parsed > Math.max(...prev));
+      setLastLog(log);
+      setCelebration({
+        xp: logXp(log),
+        achieved: log.achieved || isAchieved(ex, level, group, parsed),
+        personalBest,
+        levelUp: after.level > before.level ? { level: after.level, title: after.title } : null,
+        waitingForTrainer: log.requested && !log.trainerConfirmed,
+        isCheck: ex.measure === 'check',
+      });
       setValue('');
       setNote('');
     } catch (e) {
@@ -59,78 +85,113 @@ export default function ExerciseScreen() {
     }
   };
 
-  const askTrainer = async (logId: string) => {
-    if (!premium) {
-      router.push('/premium');
-      return;
-    }
-    setError('');
-    try {
-      await requestConfirmation(logId);
-      if (result?.id === logId) setResult({ ...result, requested: true });
-    } catch (e) {
-      setError(errorText(e));
-    }
-  };
-
   const challengeFriend = async (log: ExerciseLog) => {
-    const valueText = log.value !== null ? `${log.value} ${ex.unit}` : 'geschafft';
+    const valueText = log.value !== null ? `${String(log.value).replace('.', ',')} ${ex.unit}` : 'geschafft';
     const message = `⚽ Go4Pro-Duell!\nIch habe bei „${ex.title}“ (${LEVELS.find((l) => l.id === log.level)!.label}) ${valueText}. Schaffst du ${ex.lowerIsBetter ? 'eine bessere Zeit' : 'mehr'}?`;
     try {
       await Share.share({ message });
     } catch {
-      // Teilen abgebrochen oder nicht verfügbar
+      // abgebrochen
     }
   };
 
   return (
     <Screen bottomBar={false} topInset={false}>
       <Stack.Screen options={{ title: ex.title }} />
+      <Celebration info={celebration} onClose={() => setCelebration(null)} />
 
       <Row>
-        <T size={44}>{ex.emoji}</T>
+        <T size={40}>{ex.emoji}</T>
         <View style={{ flex: 1 }}>
-          <T size={22} weight="800">
-            {ex.title}
-          </T>
           <T size={13} color="textSecondary">
-            {ex.equipment} · ca. {ex.minutes} Min.
+            {cat?.emoji} {cat?.label} · ca. {ex.minutes} Min. · {ex.equipment}
           </T>
+          <T size={15}>{ex.description}</T>
         </View>
       </Row>
-      <T size={15}>{ex.description}</T>
 
-      <SectionTitle>Stärkegrad wählen</SectionTitle>
-      <Wrap>
-        {LEVELS.map((l) => (
-          <Chip
-            key={l.id}
-            label={`${!premium && l.id !== 'bronze' ? '⭐ ' : ''}${l.label} · ${l.sub}`}
-            selected={level === l.id}
-            color={theme[l.id]}
-            onPress={() => {
-              setLevel(l.id);
-              setResult(null);
-            }}
-          />
-        ))}
-      </Wrap>
+      <Row style={{ gap: Spacing.two }}>
+        {LEVELS.map((l) => {
+          const isLocked = !premium && l.id !== 'bronze';
+          const selected = level === l.id;
+          return (
+            <View key={l.id} style={{ flex: 1 }}>
+              <Chip
+                label={`${isLocked ? '🔒 ' : ''}${l.label}`}
+                accessibilityLabel={`${l.label}${isLocked ? ', Premium' : ''}`}
+                selected={selected}
+                color={levelColors[l.id].bg}
+                textColor={levelColors[l.id].fg}
+                onPress={() => setLevel(l.id)}
+              />
+            </View>
+          );
+        })}
+      </Row>
 
-      <Card style={{ borderColor: theme[level], borderWidth: 2 }}>
-        <T weight="700">So geht's auf {LEVELS.find((l) => l.id === level)!.label}:</T>
-        <T size={14}>{ex.variant[level]}</T>
+      <Card style={{ borderColor: levelColors[level].bg, borderWidth: 2 }}>
+        <T size={13} weight="700" style={{ color: levelColors[level].text }}>
+          {LEVELS.find((l) => l.id === level)!.label.toUpperCase()} · {LEVELS.find((l) => l.id === level)!.sub}
+        </T>
+        <T size={15}>{ex.variant[level]}</T>
         {ex.measure !== 'check' && (
-          <T weight="800" size={18} style={{ color: theme[level] }}>
+          <T weight="800" size={20} style={{ color: levelColors[level].text }}>
             Ziel: {ex.lowerIsBetter ? 'höchstens ' : ''}
-            {target} {ex.unit}
+            {String(target).replace('.', ',')} {ex.unit}
           </T>
+        )}
+        {distance && (
+          <T size={14} weight="600">
+            📏 Abstand für deine Altersklasse: {distance}
+          </T>
+        )}
+        {ex.measure === 'check' && (
+          <T size={13} color="textSecondary">
+            Bei dieser Übung entscheidet dein Trainer beim Freigeben, ob das Ziel geschafft ist.
+          </T>
+        )}
+
+        {locked ? (
+          <>
+            <T size={14} color="textSecondary">
+              Silber und Gold gibt es mit Premium. Bronze kannst du jederzeit kostenlos eintragen.
+            </T>
+            <Button title="🔒 Premium ansehen" onPress={() => router.push('/premium')} />
+          </>
+        ) : (
+          <>
+            {ex.measure !== 'check' && (
+              <Field
+                label={`Dein Ergebnis (${ex.unit})`}
+                keyboardType="decimal-pad"
+                placeholder={ex.lowerIsBetter ? 'z. B. 17,5' : 'z. B. 12'}
+                value={value}
+                onChangeText={setValue}
+              />
+            )}
+            <Field label="Notiz (optional)" placeholder="Wie lief's?" value={note} onChangeText={setNote} maxLength={200} />
+            <Button
+              title={busy ? 'Speichere …' : ex.measure === 'check' ? 'Als erledigt eintragen' : 'Ergebnis speichern'}
+              onPress={save}
+              disabled={!canSave || busy}
+            />
+            {!!error && (
+              <T size={14} style={{ color: theme.danger }}>
+                {error}
+              </T>
+            )}
+          </>
         )}
       </Card>
 
+      {lastLog && (
+        <Button title="🤝 Freund herausfordern" variant="secondary" onPress={() => challengeFriend(lastLog)} />
+      )}
+
+      <SectionTitle>So geht's</SectionTitle>
       <Card>
-        <T weight="700">Ablauf</T>
         {ex.steps.map((s, i) => (
-          <T key={i} size={14}>
+          <T key={i} size={15}>
             {i + 1}. {s}
           </T>
         ))}
@@ -144,96 +205,38 @@ export default function ExerciseScreen() {
         ))}
       </Card>
 
-      <SectionTitle>Ergebnis eintragen</SectionTitle>
-      <Card>
-        {ex.measure !== 'check' && (
-          <Field
-            label={`Dein Ergebnis (${ex.unit})`}
-            keyboardType="decimal-pad"
-            placeholder={ex.lowerIsBetter ? 'z. B. 17,5' : 'z. B. 12'}
-            value={value}
-            onChangeText={(t) => {
-              setValue(t);
-              setResult(null);
-            }}
-          />
-        )}
-        <Field label="Notiz (optional)" placeholder="Wie lief's?" value={note} onChangeText={setNote} maxLength={200} />
-        {locked ? (
-          <>
-            <T size={14} color="textSecondary">
-              Silber und Gold sind Premium. Bronze kannst du jederzeit kostenlos eintragen.
-            </T>
-            <Button title="⭐ Premium freischalten" onPress={() => router.push('/premium')} />
-          </>
-        ) : (
-          <Button title={busy ? 'Speichere …' : ex.measure === 'check' ? 'Als erledigt eintragen' : 'Speichern'} onPress={save} disabled={!canSave || busy} />
-        )}
-        {!!error && <T size={14} style={{ color: theme.danger }}>{error}</T>}
-      </Card>
-
-      {result && (
-        <Card style={{ backgroundColor: theme.primarySoft, borderColor: theme.primary }}>
-          <T size={20} weight="800">
-            {result.achieved ? '🎉 Ziel geschafft!' : '💪 Gut gemacht – weiter so!'}
-          </T>
-          <T>
-            +{logXp(result)} XP{result.achieved ? '' : ' · Das Ziel schaffst du beim nächsten Mal!'}
-          </T>
-          <T size={14} color="textSecondary">
-            Lass die Leistung von deinem Trainer bestätigen: Das bringt doppelte Basis-Punkte und zählt für die Ranglisten.
-          </T>
-          {result.requested ? (
-            <T weight="700" style={{ color: theme.primary }}>
-              📨 Bestätigung angefragt
-            </T>
-          ) : (
-            <Button title={premium ? 'Trainer-Bestätigung anfragen' : '⭐ Trainer-Bestätigung (Premium)'} onPress={() => askTrainer(result.id)} />
-          )}
-          <Button title="Freund herausfordern" variant="secondary" onPress={() => challengeFriend(result)} />
-        </Card>
-      )}
-
       {logs.length > 0 && <SectionTitle>Deine Einträge ({logs.length})</SectionTitle>}
-      {logs.map((l) => (
-        <Card key={l.id}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Pill text={LEVELS.find((x) => x.id === l.level)!.label} color={theme[l.level]} />
-            <T size={12} color="textSecondary">
-              {formatDate(l.date)}
+      {logs.map((l) => {
+        const st = statusText(l);
+        const color = st.tone === 'ok' ? theme.primary : st.tone === 'bad' ? theme.danger : theme.textSecondary;
+        return (
+          <Card key={l.id}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Pill text={LEVELS.find((x) => x.id === l.level)!.label} color={levelColors[l.level].bg} textColor={levelColors[l.level].fg} />
+              <T size={12} color="textSecondary">
+                {formatDate(l.date)}
+              </T>
+            </Row>
+            <T weight="700">
+              {l.value !== null ? `${String(l.value).replace('.', ',')} ${ex.unit}` : 'Erledigt'} {l.achieved ? '✅' : ''}
+              {'  '}+{logXp(l)} XP
             </T>
-          </Row>
-          <T weight="700">
-            {l.value !== null ? `${String(l.value).replace('.', ',')} ${ex.unit}` : 'Erledigt'} {l.achieved ? '✅' : ''}
-            {'  '}+{logXp(l)} XP
-          </T>
-          {!!l.note && (
-            <T size={14} color="textSecondary">
-              „{l.note}“
+            {!!l.note && (
+              <T size={14} color="textSecondary">
+                „{l.note}“
+              </T>
+            )}
+            <T size={13} weight="700" style={{ color }}>
+              {st.text}
             </T>
-          )}
-          {l.status === 'confirmed' ? (
-            <T size={13} style={{ color: theme.primary }} weight="700">
-              ✔ Von Spieler und Trainer bestätigt
-            </T>
-          ) : l.status === 'rejected' ? (
-            <T size={13} style={{ color: theme.danger }} weight="700">
-              ✖ Bestätigung abgelehnt
-            </T>
-          ) : l.requested ? (
-            <T size={13} color="textSecondary" weight="700">
-              📨 Bestätigung angefragt – wartet auf E-Mail-Bestätigung
-            </T>
-          ) : (
-            <Button
-              title={premium ? 'Trainer-Bestätigung anfragen' : '⭐ Trainer-Bestätigung (Premium)'}
-              variant="secondary"
-              style={{ minHeight: 40 }}
-              onPress={() => askTrainer(l.id)}
-            />
-          )}
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
+      {best === null && logs.length === 0 && (
+        <T size={13} color="textSecondary" style={{ textAlign: 'center' }}>
+          Noch kein Eintrag – dein erster bringt dir Punkte!
+        </T>
+      )}
     </Screen>
   );
 }

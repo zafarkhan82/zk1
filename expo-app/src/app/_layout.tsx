@@ -70,6 +70,8 @@ function RootStack() {
       <Stack.Screen name="premium" options={{ title: 'Premium', presentation: 'modal' }} />
       <Stack.Screen name="team" options={{ title: 'Mein Team' }} />
       <Stack.Screen name="admin" options={{ title: 'Admin' }} />
+      <Stack.Screen name="trainer/index" options={{ title: 'Trainer-Bereich' }} />
+      <Stack.Screen name="trainer/team/[id]" options={{ title: 'Team' }} />
     </Stack>
   );
 }

@@ -27,16 +27,23 @@ export default function Admin() {
   const { isAdmin } = useStore();
   const theme = useTheme();
   const [payments, setPayments] = useState<OpenPayment[]>([]);
+  const [pendingClubs, setPendingClubs] = useState<{ club_id: string; name: string; city: string | null; association: string | null; dfb_club_number: string | null; requested_by: string | null }[]>([]);
+  const [clubs, setClubs] = useState<{ club_id: string; name: string; city: string | null; license_until: string | null; teams: number; players: number }[]>([]);
+  const [licRef, setLicRef] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [p, s] = await Promise.all([
+    const [p, s, pc, cl] = await Promise.all([
       supabase.rpc('admin_open_payments'),
       supabase.from('app_settings').select('key,value'),
+      supabase.rpc('admin_pending_clubs'),
+      supabase.rpc('admin_clubs'),
     ]);
     setPayments((p.data as OpenPayment[]) ?? []);
+    setPendingClubs((pc.data as typeof pendingClubs) ?? []);
+    setClubs((cl.data as typeof clubs) ?? []);
     const map: Record<string, string> = {};
     ((s.data as { key: string; value: string }[]) ?? []).forEach((r) => (map[r.key] = r.value));
     setSettings(map);
@@ -67,6 +74,25 @@ export default function Admin() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const reviewClub = async (id: string, accept: boolean) => {
+    setMsg('');
+    const { error } = await supabase.rpc('admin_review_club', { p_club: id, p_accept: accept });
+    setMsg(error ? errorText(error) : accept ? '✅ Verein freigegeben' : 'Verein abgelehnt');
+    load();
+  };
+
+  const grantLicense = async (id: string) => {
+    setMsg('');
+    const { data, error } = await supabase.rpc('grant_club_license', {
+      p_club: id,
+      p_months: 12,
+      p_reference: licRef[id] || null,
+      p_amount_cents: null,
+    });
+    setMsg(error ? errorText(error) : `✅ Vereinslizenz bis ${new Date(data as string).toLocaleDateString('de-DE')}`);
+    load();
   };
 
   const saveSettings = async () => {
@@ -114,6 +140,47 @@ export default function Admin() {
             {p.nickname} · {p.payer_email} · {new Date(p.created_at).toLocaleDateString('de-DE')}
           </T>
           <Button title="Zahlung eingegangen → Premium freischalten" disabled={busy} onPress={() => confirm(p.reference)} />
+        </Card>
+      ))}
+
+      <SectionTitle>Neue Vereine ({pendingClubs.length})</SectionTitle>
+      {pendingClubs.length === 0 && (
+        <Card>
+          <T size={14} color="textSecondary">
+            Keine Vereine zur Prüfung.
+          </T>
+        </Card>
+      )}
+      {pendingClubs.map((c) => (
+        <Card key={c.club_id}>
+          <T weight="800">{c.name}</T>
+          <T size={13} color="textSecondary">
+            {[c.city, c.association, c.dfb_club_number && `Nr. ${c.dfb_club_number}`, c.requested_by].filter(Boolean).join(' · ')}
+          </T>
+          <Row>
+            <Button title="Freigeben" style={{ flex: 1 }} onPress={() => reviewClub(c.club_id, true)} />
+            <Button title="Ablehnen" variant="danger" onPress={() => reviewClub(c.club_id, false)} />
+          </Row>
+        </Card>
+      ))}
+
+      <SectionTitle>Vereine & Lizenzen ({clubs.length})</SectionTitle>
+      {clubs.map((c) => (
+        <Card key={c.club_id}>
+          <T weight="800">{c.name}</T>
+          <T size={13} color="textSecondary">
+            {c.city ? `${c.city} · ` : ''}
+            {c.teams} Teams · {c.players} Spieler*innen ·{' '}
+            {c.license_until && new Date(c.license_until) > new Date()
+              ? `Lizenz bis ${new Date(c.license_until).toLocaleDateString('de-DE')}`
+              : 'keine Lizenz'}
+          </T>
+          <Field
+            label="Rechnungs-/Zahlungsreferenz (optional)"
+            value={licRef[c.club_id] ?? ''}
+            onChangeText={(v) => setLicRef((x) => ({ ...x, [c.club_id]: v }))}
+          />
+          <Button title="Vereinslizenz +12 Monate" variant="secondary" disabled={busy} onPress={() => grantLicense(c.club_id)} />
         </Card>
       ))}
 

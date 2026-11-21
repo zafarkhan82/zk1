@@ -26,7 +26,8 @@ export default function CreatePlayer() {
 
   const group = birthYear ? ageGroupFor(birthYear) : null;
   const u = birthYear ? uClass(birthYear) : 0;
-  const selfTooYoung = forSelf && birthYear !== null && u < 16;
+  // Eigenes Konto erst ab 16: Jahrgang konservativ (mind. 17 im laufenden Kalenderjahr), wie in der Datenbank
+  const selfTooYoung = forSelf && birthYear !== null && new Date().getFullYear() - birthYear < 17;
   const valid = nickname.trim().length >= 2 && group !== null && consent && !selfTooYoung;
 
   const submit = async () => {
@@ -53,6 +54,13 @@ export default function CreatePlayer() {
           <T color="textSecondary">Lege jetzt den Spieler an, dessen Entwicklung ihr festhalten wollt.</T>
         </View>
       )}
+
+      <Card onPress={() => router.push('/trainer')}>
+        <T weight="700">🧑‍🏫 Ich bin Trainer*in</T>
+        <T size={14} color="textSecondary">
+          Kein Spielerprofil nötig – direkt zum Trainer-Bereich: Verein, Teams und Freigaben.
+        </T>
+      </Card>
 
       <Card>
         <T weight="700">Für wen ist das Profil?</T>
@@ -90,7 +98,7 @@ export default function CreatePlayer() {
         )}
         {selfTooYoung && (
           <T size={14} style={{ color: theme.danger }}>
-            Unter 16 muss ein Elternteil das Profil anlegen.
+            Unter 16 legt ein Elternteil das Profil an. Ab Jahrgang {new Date().getFullYear() - 17} geht ein eigenes Konto.
           </T>
         )}
       </Card>
@@ -118,7 +126,7 @@ export default function CreatePlayer() {
         <Checkbox
           checked={publicConsent}
           onChange={setPublicConsent}
-          label="Optional: Spitzname, Jahrgang, Verein und bestätigte Leistungen dürfen öffentlich in Ranglisten erscheinen (nur mit Premium). Jederzeit widerrufbar."
+          label="Optional: Ab der C-Jugend dürfen Spitzname, Jahrgang, Verein und freigegebene Leistungen in Ranglisten erscheinen (nur mit Premium). Jederzeit widerrufbar."
         />
       </Card>
 

@@ -98,6 +98,8 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -116,16 +118,25 @@ export function Chip({
   selected,
   onPress,
   color,
+  textColor,
+  accessibilityLabel,
 }: {
   label: string;
   selected?: boolean;
   onPress?: () => void;
   color?: string;
+  /** Schriftfarbe im ausgewählten Zustand (z. B. dunkel auf Gold) */
+  textColor?: string;
+  accessibilityLabel?: string;
 }) {
   const theme = useTheme();
   const active = color ?? theme.primary;
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: !!selected, checked: !!selected }}
+      accessibilityLabel={accessibilityLabel ?? label}
+      hitSlop={4}
       onPress={onPress}
       style={[
         styles.chip,
@@ -134,7 +145,7 @@ export function Chip({
           backgroundColor: selected ? active : theme.backgroundElement,
         },
       ]}>
-      <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '600', fontSize: 14 }}>{label}</Text>
+      <Text style={{ color: selected ? (textColor ?? theme.primaryText) : theme.text, fontWeight: '600', fontSize: 15 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -191,7 +202,12 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
 export function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   const theme = useTheme();
   return (
-    <Pressable onPress={() => onChange(!checked)} style={{ flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-start' }}>
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={label}
+      onPress={() => onChange(!checked)}
+      style={{ flexDirection: 'row', gap: Spacing.three, alignItems: 'center', minHeight: 44, paddingVertical: 4 }}>
       <View
         style={[
           styles.checkbox,
@@ -206,10 +222,10 @@ export function Checkbox({ checked, onChange, label }: { checked: boolean; onCha
   );
 }
 
-export function Pill({ text, color }: { text: string; color: string }) {
+export function Pill({ text, color, textColor = '#fff' }: { text: string; color: string; textColor?: string }) {
   return (
     <View style={[styles.pill, { backgroundColor: color }]}>
-      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{text}</Text>
+      <Text style={{ color: textColor, fontWeight: '800', fontSize: 13 }}>{text}</Text>
     </View>
   );
 }
@@ -222,7 +238,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   button: {
-    minHeight: 50,
+    minHeight: 48,
     borderRadius: 14,
     paddingHorizontal: Spacing.four,
     alignItems: 'center',
@@ -231,8 +247,10 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderRadius: 999,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   input: {
     borderWidth: 1,
@@ -242,8 +260,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     borderRadius: 6,
     borderWidth: 2,
     alignItems: 'center',
@@ -256,3 +274,29 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
 });
+
+/** Farben für Stufen-Plaketten mit ausreichendem Kontrast */
+export function useLevelColors() {
+  const theme = useTheme();
+  return {
+    bronze: { bg: theme.bronze, fg: theme.onBronze, text: theme.bronzeText },
+    silber: { bg: theme.silber, fg: theme.onSilber, text: theme.silberText },
+    gold: { bg: theme.gold, fg: theme.onGold, text: theme.goldText },
+  } as const;
+}
+
+/** Hinweis-/Leerzustand mit Symbol, Text und optionaler Aktion */
+export function EmptyState({ emoji, title, text, action }: { emoji: string; title: string; text: string; action?: ReactNode }) {
+  return (
+    <Card style={{ alignItems: 'center', paddingVertical: Spacing.four }}>
+      <T size={40}>{emoji}</T>
+      <T weight="800" size={18} style={{ textAlign: 'center' }}>
+        {title}
+      </T>
+      <T size={14} color="textSecondary" style={{ textAlign: 'center' }}>
+        {text}
+      </T>
+      {action}
+    </Card>
+  );
+}

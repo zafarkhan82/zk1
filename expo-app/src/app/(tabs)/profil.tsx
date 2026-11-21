@@ -47,7 +47,7 @@ export default function ProfileScreen() {
       <Card style={{ alignItems: 'center' }}>
         <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
           <T size={34} weight="800" color="primaryText">
-            {overall(scores)}
+            {overall(scores, profile.position === 'Tor')}
           </T>
         </View>
         <Row>
@@ -87,7 +87,7 @@ export default function ProfileScreen() {
 
       <SectionTitle>Skills</SectionTitle>
       <Card>
-        {CATEGORIES.map((c) => (
+        {CATEGORIES.filter((c) => c.id !== 'torwart' || profile.position === 'Tor' || scores.torwart > 0).map((c) => (
           <View key={c.id} style={{ gap: 4 }}>
             <Row style={{ justifyContent: 'space-between' }}>
               <T size={14} weight="600">
@@ -105,8 +105,19 @@ export default function ProfileScreen() {
       <SectionTitle right={<T color="textSecondary">{earned}/{list.length}</T>}>Abzeichen</SectionTitle>
       <Wrap>
         {list.map((b) => (
-          <Card key={b.id} style={{ width: '31%', minWidth: 96, flexGrow: 1, alignItems: 'center', opacity: b.earned ? 1 : 0.35 }}>
-            <T size={28}>{b.earned ? b.emoji : '🔒'}</T>
+          <Card
+            key={b.id}
+            style={{
+              width: '31%',
+              minWidth: 96,
+              flexGrow: 1,
+              alignItems: 'center',
+              borderStyle: b.earned ? 'solid' : 'dashed',
+              backgroundColor: b.earned ? theme.backgroundElement : theme.background,
+            }}>
+            <T size={28} style={{ opacity: b.earned ? 1 : 0.4 }}>
+              {b.emoji}
+            </T>
             <T size={13} weight="700" style={{ textAlign: 'center' }}>
               {b.title}
             </T>
@@ -152,6 +163,7 @@ export default function ProfileScreen() {
           Angemeldet als {session?.user.email}
         </T>
         <Button title="+ Weiteres Kind anlegen" variant="secondary" onPress={() => router.push('/onboarding')} />
+        <Button title="🧑‍🏫 Trainer-Bereich" variant="secondary" onPress={() => router.push('/trainer')} />
         {isAdmin && <Button title="🛠️ Admin-Bereich" variant="secondary" onPress={() => router.push('/admin')} />}
         <Button title="Abmelden" variant="danger" onPress={() => signOut()} />
         <T size={12} color="textSecondary">

@@ -2,9 +2,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Card, Chip, Pill, Row, Screen, T, Wrap } from '@/components/ui';
+import { Card, Chip, Pill, Row, Screen, T, useLevelColors, Wrap } from '@/components/ui';
 import { CATEGORIES, exercisesFor, LEVELS } from '@/data/exercises';
-import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL } from '@/lib/age';
 import { bestLevel, skillScores } from '@/lib/game';
 import { useStore } from '@/lib/store';
@@ -12,7 +11,7 @@ import type { Category } from '@/lib/types';
 
 export default function Training() {
   const { state, group } = useStore();
-  const theme = useTheme();
+  const levelColors = useLevelColors();
   const [cat, setCat] = useState<Category | 'alle'>('alle');
   const scores = skillScores(state, group);
   const list = exercisesFor(group).filter((e) => cat === 'alle' || e.category === cat);
@@ -56,7 +55,7 @@ export default function Training() {
                 </T>
               </View>
               {best ? (
-                <Pill text={LEVELS.find((l) => l.id === best)!.label} color={theme[best]} />
+                <Pill text={LEVELS.find((l) => l.id === best)!.label} color={levelColors[best].bg} textColor={levelColors[best].fg} />
               ) : (
                 <T size={12} color="textSecondary">
                   neu

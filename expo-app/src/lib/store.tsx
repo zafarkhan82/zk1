@@ -1,13 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { ageGroupFor } from './age';
 import { useAuth } from './auth';
 import { supabase } from './supabase';
-import type { AgeGroup, AppState, DiaryEntry, ExerciseLog, Player, Position, TeamInfo } from './types';
+import type { AgeGroup, AppState, DiaryEntry, ExerciseLog, Player, Position, StaffRow, TeamInfo } from './types';
 
 const ACTIVE_KEY = 'kicktagebuch:aktiverSpieler';
-const claimKey = (playerId: string) => `kicktagebuch:claimed:${playerId}`;
 
 export interface NewPlayer {
   nickname: string;
@@ -17,9 +16,13 @@ export interface NewPlayer {
   publicConsent: boolean;
 }
 
+export type NewLog = Pick<ExerciseLog, 'exerciseId' | 'level' | 'value' | 'note'>;
+
 interface Store {
-  /** Spielerliste ist geladen */
+  /** Spielerliste ist geladen (oder Laden ist fehlgeschlagen, siehe loadError) */
   ready: boolean;
+  /** Fehler beim Laden – dann nicht zum Onboarding umleiten, sondern "Erneut versuchen" anbieten */
+  loadError: string | null;
   loading: boolean;
   players: Player[];
   state: AppState;
@@ -27,15 +30,21 @@ interface Store {
   premium: boolean;
   isAdmin: boolean;
   teams: TeamInfo[];
+  staff: StaffRow[];
+  /** Freigeschaltete*r Trainer*in oder Vereins-Admin in mindestens einem Verein */
+  isStaff: boolean;
+  /** Hat (auch wartende) Trainer-/Vereinsanträge */
+  hasStaffRequests: boolean;
   selectPlayer: (id: string) => void;
   createPlayer: (p: NewPlayer) => Promise<void>;
   setPublicConsent: (v: boolean) => Promise<void>;
-  addLog: (l: Omit<ExerciseLog, 'id' | 'date' | 'status' | 'requested'>) => Promise<ExerciseLog>;
-  requestConfirmation: (logId: string) => Promise<void>;
+  addLog: (l: NewLog) => Promise<ExerciseLog>;
+  confirmByPlayer: (ids: string[]) => Promise<void>;
   addDiary: (d: Omit<DiaryEntry, 'id' | 'date'>) => Promise<void>;
   joinTeam: (code: string) => Promise<void>;
-  claim: (key: string) => void;
+  claim: (week: string, challengeId: string, xp: number) => Promise<void>;
   refresh: () => Promise<void>;
+  refreshStaff: () => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -51,7 +60,7 @@ const toPlayer = (r: any, uid: string): Player => ({
   publicConsent: !!r.public_consent_at,
 });
 
-const toLog = (r: any): ExerciseLog => ({
+export const toLog = (r: any): ExerciseLog => ({
   id: r.id,
   exerciseId: r.exercise_id,
   level: r.level,
@@ -61,6 +70,8 @@ const toLog = (r: any): ExerciseLog => ({
   date: r.created_at,
   status: r.status,
   requested: !!r.trainer_user_id,
+  playerConfirmed: !!r.player_confirmed_at,
+  trainerConfirmed: !!r.trainer_confirmed_at,
 });
 
 const toDiary = (r: any): DiaryEntry => ({
@@ -72,14 +83,29 @@ const toDiary = (r: any): DiaryEntry => ({
   good: r.good ?? '',
   improve: r.improve ?? '',
 });
+
+const toStaff = (r: any): StaffRow => ({
+  clubId: r.club_id,
+  clubName: r.club_name,
+  clubStatus: r.club_status,
+  role: r.role,
+  membershipStatus: r.membership_status,
+  teamId: r.team_id,
+  teamName: r.team_name,
+  ageGroup: r.age_group,
+  season: r.season,
+  joinCode: r.join_code,
+  pendingMembers: Number(r.pending_members ?? 0),
+  licenseUntil: r.license_until,
+});
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const uid = session?.user.id ?? null;
 
-  // Für welches Konto die Spielerliste geladen ist ("" = abgemeldet). So ist "ready" nie veraltet.
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -89,28 +115,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [premium, setPremium] = useState(false);
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [staff, setStaff] = useState<StaffRow[]>([]);
+  // Schutz vor vertauschten Daten, wenn schnell zwischen Kindern gewechselt wird
+  const requestFor = useRef<string | null>(null);
 
-  useEffect(() => {
+  const refreshStaff = useCallback(async () => {
     if (!uid) {
+      setStaff([]);
       setIsAdmin(false);
       return;
     }
-    supabase.rpc('is_platform_admin').then(({ data }) => setIsAdmin(!!data));
+    const [s, a] = await Promise.all([supabase.rpc('my_staff_overview'), supabase.rpc('is_platform_admin')]);
+    if (!s.error) setStaff(((s.data ?? []) as unknown[]).map(toStaff));
+    setIsAdmin(!!a.data);
   }, [uid]);
 
   const loadPlayers = useCallback(async () => {
     if (!uid) {
       setPlayers([]);
       setActiveId(null);
+      setLoadError(null);
       setLoadedFor('');
       return;
     }
-    const { data, error } = await supabase
-      .from('players')
-      .select('*')
-      .or(`guardian_user_id.eq.${uid},own_user_id.eq.${uid}`)
-      .is('anonymized_at', null)
-      .order('created_at');
+    const [{ data, error }] = await Promise.all([
+      supabase
+        .from('players')
+        .select('*')
+        .or(`guardian_user_id.eq.${uid},own_user_id.eq.${uid}`)
+        .is('anonymized_at', null)
+        .order('created_at'),
+      refreshStaff(),
+    ]);
     if (error) throw error;
     const list = (data ?? []).map((r) => toPlayer(r, uid));
     setPlayers(list);
@@ -121,18 +157,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // ignorieren
     }
     setActiveId(list.find((p) => p.id === stored)?.id ?? list[0]?.id ?? null);
+    setLoadError(null);
     setLoadedFor(uid);
-  }, [uid]);
+  }, [uid, refreshStaff]);
 
   const loadPlayerData = useCallback(async (playerId: string) => {
+    requestFor.current = playerId;
     setLoading(true);
     try {
-      const [l, d, prem, t] = await Promise.all([
+      const [l, d, prem, t, c] = await Promise.all([
         supabase.from('exercise_entries').select('*').eq('player_id', playerId).order('created_at', { ascending: false }),
         supabase.from('diary_entries').select('*').eq('player_id', playerId).order('created_at', { ascending: false }),
         supabase.rpc('is_premium', { p_player: playerId }),
         supabase.rpc('my_teams', { p_player: playerId }),
+        supabase.from('challenge_claims').select('week,challenge_id').eq('player_id', playerId),
       ]);
+      if (requestFor.current !== playerId) return; // inzwischen anderes Kind gewählt
+      const firstError = l.error ?? d.error ?? prem.error ?? t.error;
+      if (firstError) throw firstError;
       setLogs((l.data ?? []).map(toLog));
       setDiary((d.data ?? []).map(toDiary));
       setPremium(!!prem.data);
@@ -147,28 +189,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           jerseyNumber: r.jersey_number,
         })),
       );
-      let raw: string | null = null;
-      try {
-        raw = await AsyncStorage.getItem(claimKey(playerId));
-      } catch {
-        // ignorieren
-      }
-      setClaimed(raw ? JSON.parse(raw) : []);
+      setClaimed(((c.data ?? []) as { week: string; challenge_id: string }[]).map((r) => `${r.week}:${r.challenge_id}`));
+      setLoadError(null);
+    } catch (e) {
+      if (requestFor.current === playerId) setLoadError((e as Error).message ?? 'Laden fehlgeschlagen');
     } finally {
-      setLoading(false);
+      if (requestFor.current === playerId) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadPlayers().catch(() => setLoadedFor(uid ?? ''));
-  }, [loadPlayers]);
+    loadPlayers().catch((e) => {
+      setLoadError((e as Error).message ?? 'Laden fehlgeschlagen');
+      setLoadedFor(uid ?? '');
+    });
+  }, [loadPlayers, uid]);
 
   useEffect(() => {
     if (activeId) loadPlayerData(activeId);
     else {
+      requestFor.current = null;
       setLogs([]);
       setDiary([]);
       setTeams([]);
+      setClaimed([]);
       setPremium(false);
     }
   }, [activeId, loadPlayerData]);
@@ -217,8 +261,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const addLog = useCallback(
-    async (l: Omit<ExerciseLog, 'id' | 'date' | 'status' | 'requested'>) => {
+    async (l: NewLog) => {
       if (!activeId || !uid) throw new Error('Kein Spieler gewählt');
+      // "achieved", Bestätigungen und Trainer setzt die Datenbank selbst.
       const { data, error } = await supabase
         .from('exercise_entries')
         .insert({
@@ -226,7 +271,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           exercise_id: l.exerciseId,
           level: l.level,
           value: l.value,
-          achieved: l.achieved,
+          achieved: false,
           note: l.note || null,
           created_by: uid,
         })
@@ -240,11 +285,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [activeId, uid],
   );
 
-  const requestConfirmation = useCallback(async (logId: string) => {
-    const { error } = await supabase.rpc('request_trainer_confirmation', { p_entry: logId });
-    if (error) throw error;
-    setLogs((list) => list.map((l) => (l.id === logId ? { ...l, requested: true } : l)));
-  }, []);
+  const confirmByPlayer = useCallback(
+    async (ids: string[]) => {
+      const { error } = await supabase.rpc('player_confirm_entries', { p_ids: ids });
+      if (error) throw error;
+      if (activeId) await loadPlayerData(activeId);
+    },
+    [activeId, loadPlayerData],
+  );
 
   const addDiary = useCallback(
     async (d: Omit<DiaryEntry, 'id' | 'date'>) => {
@@ -279,31 +327,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const claim = useCallback(
-    (key: string) => {
-      if (!activeId) return;
-      setClaimed((c) => {
-        if (c.includes(key)) return c;
-        const next = [...c, key];
-        AsyncStorage.setItem(claimKey(activeId), JSON.stringify(next)).catch(() => {});
-        return next;
-      });
+    async (week: string, challengeId: string, xp: number) => {
+      if (!activeId || !uid) return;
+      const key = `${week}:${challengeId}`;
+      const { error } = await supabase
+        .from('challenge_claims')
+        .insert({ player_id: activeId, week, challenge_id: challengeId, xp, created_by: uid });
+      if (error && !/duplicate/i.test(error.message)) throw error;
+      setClaimed((c) => (c.includes(key) ? c : [...c, key]));
     },
-    [activeId],
+    [activeId, uid],
   );
 
   const refresh = useCallback(async () => {
-    await loadPlayers();
-    if (activeId) await loadPlayerData(activeId);
+    try {
+      await loadPlayers();
+      if (activeId) await loadPlayerData(activeId);
+    } catch (e) {
+      setLoadError((e as Error).message ?? 'Laden fehlgeschlagen');
+    }
   }, [loadPlayers, loadPlayerData, activeId]);
 
   const ready = loadedFor === (uid ?? '');
   const profile = players.find((p) => p.id === activeId) ?? null;
   const group: AgeGroup = (profile && ageGroupFor(profile.birthYear)) || 'E';
   const state: AppState = useMemo(() => ({ profile, logs, diary, claimed }), [profile, logs, diary, claimed]);
+  const isStaff = staff.some((s) => s.membershipStatus === 'approved' && s.clubStatus === 'approved');
+  const hasStaffRequests = staff.length > 0;
 
   const value = useMemo<Store>(
     () => ({
       ready,
+      loadError,
       loading,
       players,
       state,
@@ -311,17 +366,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       premium,
       isAdmin,
       teams,
+      staff,
+      isStaff,
+      hasStaffRequests,
       selectPlayer,
       createPlayer,
       setPublicConsent,
       addLog,
-      requestConfirmation,
+      confirmByPlayer,
       addDiary,
       joinTeam,
       claim,
       refresh,
+      refreshStaff,
     }),
-    [ready, loading, players, state, group, premium, isAdmin, teams, selectPlayer, createPlayer, setPublicConsent, addLog, requestConfirmation, addDiary, joinTeam, claim, refresh],
+    [ready, loadError, loading, players, state, group, premium, isAdmin, teams, staff, isStaff, hasStaffRequests, selectPlayer, createPlayer, setPublicConsent, addLog, confirmByPlayer, addDiary, joinTeam, claim, refresh, refreshStaff],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -17,7 +17,7 @@ const TABS = [
 
 export default function TabLayout() {
   const { session } = useAuth();
-  const { players, ready } = useStore();
+  const { players, ready, loadError, refresh, hasStaffRequests } = useStore();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -30,7 +30,19 @@ export default function TabLayout() {
       </View>
     );
   }
-  if (players.length === 0) return <Redirect href="/onboarding" />;
+  if (loadError && players.length === 0) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background, gap: 12, padding: 24 }}>
+        <Text style={{ fontSize: 40 }}>📡</Text>
+        <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800', textAlign: 'center' }}>Keine Verbindung</Text>
+        <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>Deine Daten konnten nicht geladen werden. Prüfe dein Internet.</Text>
+        <Pressable onPress={() => refresh()} style={{ backgroundColor: theme.primary, borderRadius: 14, paddingHorizontal: 24, minHeight: 48, justifyContent: 'center' }}>
+          <Text style={{ color: theme.primaryText, fontWeight: '800' }}>Erneut versuchen</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  if (players.length === 0) return <Redirect href={hasStaffRequests ? '/trainer' : '/onboarding'} />;
 
   return (
     <Tabs>
@@ -57,7 +69,12 @@ export default function TabLayout() {
 function TabButton({ icon, label, isFocused, ...props }: TabTriggerSlotProps & { icon: string; label: string }) {
   const theme = useTheme();
   return (
-    <Pressable {...(props as PressableProps)} style={styles.tab} accessibilityLabel={label}>
+    <Pressable
+      {...(props as PressableProps)}
+      style={styles.tab}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: !!isFocused }}
+      accessibilityLabel={label}>
       <View style={[styles.iconWrap, isFocused && { backgroundColor: theme.primarySoft }]}>
         <Text style={{ fontSize: 20, opacity: isFocused ? 1 : 0.55 }}>{icon}</Text>
       </View>

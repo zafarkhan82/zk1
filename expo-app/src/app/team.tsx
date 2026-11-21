@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, Card, Field, Row, Screen, T } from '@/components/ui';
+import { Button, Card, EmptyState, Field, Row, Screen, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { useStore } from '@/lib/store';
 import { errorText } from '@/lib/supabase';
@@ -35,11 +35,11 @@ export default function Team() {
       </T>
 
       {teams.length === 0 && (
-        <Card>
-          <T size={14} color="textSecondary">
-            Noch in keinem Team. Den Team-Code bekommst du von deinem Trainer.
-          </T>
-        </Card>
+        <EmptyState
+          emoji="👥"
+          title="Noch in keinem Team"
+          text="Frag deinen Trainer nach dem 6-stelligen Team-Code und gib ihn unten ein. Danach kann er deine Silber- und Gold-Leistungen freigeben."
+        />
       )}
 
       {teams.map((t) => (
