@@ -3,12 +3,13 @@ import { Stack } from 'expo-router/stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
+import { FussballdePanel } from '@/components/fussballde-panel';
 import { Button, Card, Chip, confirmAction, EmptyState, Field, Pill, Row, Screen, SectionTitle, T, Wrap } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { useStore } from '@/lib/store';
 import { errorText, supabase } from '@/lib/supabase';
 
-type Tab = 'teams' | 'trainer' | 'spieler' | 'historie';
+type Tab = 'teams' | 'trainer' | 'spieler' | 'historie' | 'fussballde';
 const AGE = ['E', 'D', 'C', 'B', 'A'] as const;
 
 interface TeamRow {
@@ -142,6 +143,7 @@ export default function ClubAdmin() {
         <Chip label={`🧑‍🏫 Trainer${pendingTrainers.length ? ` (${pendingTrainers.length})` : ''}`} selected={tab === 'trainer'} onPress={() => setTab('trainer')} />
         <Chip label={`⚽ Spieler${pendingCount ? ` (${pendingCount})` : ''}`} selected={tab === 'spieler'} onPress={() => setTab('spieler')} />
         <Chip label="📜 Historie" selected={tab === 'historie'} onPress={() => setTab('historie')} />
+        <Chip label="🔗 fussball.de" selected={tab === 'fussballde'} onPress={() => setTab('fussballde')} />
       </Wrap>
 
       {!!msg && (
@@ -469,6 +471,8 @@ export default function ClubAdmin() {
           ))}
         </>
       )}
+
+      {tab === 'fussballde' && <FussballdePanel clubId={id} teams={teams} onSynced={load} />}
 
       {/* ───────── Historie ───────── */}
       {tab === 'historie' && (

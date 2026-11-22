@@ -164,6 +164,25 @@ export default function Admin() {
         </Card>
       ))}
 
+      <SectionTitle>fussball.de</SectionTitle>
+      <Card>
+        <T size={14} color="textSecondary">
+          Gleicht alle Vereine ab, die mit einer fussball.de-ID verknüpft sind (Spielpläne, Ergebnisse, Staffeln).
+        </T>
+        <Button
+          title={busy ? 'Gleiche ab …' : '🔄 Alle Vereine abgleichen'}
+          variant="secondary"
+          disabled={busy}
+          onPress={async () => {
+            setBusy(true);
+            setMsg('');
+            const { data, error } = await supabase.functions.invoke('fussballde-sync', { body: {} });
+            setBusy(false);
+            setMsg(error ? errorText(error) : data?.status === 'ok' ? `✅ ${data.teams} Teams, ${data.matches} Spiele abgeglichen` : `ℹ️ ${data?.message ?? 'Fertig'}`);
+          }}
+        />
+      </Card>
+
       <SectionTitle>Vereine & Lizenzen ({clubs.length})</SectionTitle>
       {clubs.map((c) => (
         <Card key={c.club_id}>

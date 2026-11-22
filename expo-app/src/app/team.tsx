@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Button, Card, EmptyState, Field, Row, Screen, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { TeamSchedule } from '@/components/fussballde-panel';
 import { useStore } from '@/lib/store';
 import { errorText, supabase } from '@/lib/supabase';
 
@@ -78,6 +79,10 @@ export default function Team() {
         <Button title={busy ? 'Sende …' : 'Beitreten'} onPress={join} disabled={code.trim().length !== 6 || busy} />
         {!!msg && <T size={14}>{msg}</T>}
       </Card>
+
+      {teams.filter((t) => t.status === 'approved').map((t) => (
+        <TeamSchedule key={`s-${t.teamId}`} teamId={t.teamId} />
+      ))}
 
       {history.length > 0 && (
         <Card>

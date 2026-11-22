@@ -3,6 +3,7 @@ import { Stack } from 'expo-router/stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Share, View } from 'react-native';
 
+import { TeamSchedule } from '@/components/fussballde-panel';
 import { Button, Card, Chip, EmptyState, Field, Row, Screen, SectionTitle, T, useLevelColors, Wrap } from '@/components/ui';
 import { EXERCISES, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
@@ -123,6 +124,8 @@ export default function TeamDetail() {
         </T>
         <Button title="📤 Code an Eltern schicken" onPress={shareCode} style={{ alignSelf: 'stretch' }} />
       </Card>
+
+      <TeamSchedule teamId={id} />
 
       {!!msg && (
         <T size={14} style={{ color: theme.danger }}>
