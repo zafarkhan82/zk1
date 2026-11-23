@@ -1,171 +1,229 @@
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
-import { Button, Card, Pill, Progress, Row, Screen, SectionTitle, T, useLevelColors } from '@/components/ui';
+import { Icon } from '@/components/icons';
+import { Button, Card, H, Label, Logo, Num, Pill, Progress, Row, Screen, T, useLevelColors } from '@/components/ui';
+import { Font } from '@/constants/theme';
 import { DAILY_TIPS, exercisesFor, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, groupIndex } from '@/lib/age';
-import { bestLevel, challengeProgress, dayKey, levelInfo, overall, skillScores, streak, totalXp, weeklyChallenges } from '@/lib/game';
+import { activeDays, bestLevel, challengeProgress, dayKey, levelInfo, streak, totalXp, weekStart, weeklyChallenges } from '@/lib/game';
 import { useStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import type { Level } from '@/lib/types';
 
 const NEXT: Record<string, Level> = { none: 'bronze', bronze: 'silber', silber: 'gold', gold: 'gold' };
+const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
-function Stat({ emoji, value, label, onPress }: { emoji: string; value: string; label: string; onPress?: () => void }) {
-  return (
-    <Card style={{ flex: 1, alignItems: 'center', minHeight: 112, justifyContent: 'center' }} onPress={onPress}>
-      <T size={24}>{emoji}</T>
-      <T size={22} weight="800">
-        {value}
-      </T>
-      <T size={12} color="textSecondary" numberOfLines={1}>
-        {label}
-      </T>
-    </Card>
-  );
+interface NextMatch {
+  kickoff: string;
+  opponent: string;
+  is_home: boolean;
+  competition: string | null;
 }
 
-export default function Home() {
-  const { state, group, premium } = useStore();
+export default function Heute() {
+  const { state, group, premium, teams } = useStore();
   const theme = useTheme();
   const levelColors = useLevelColors();
   const profile = state.profile!;
   const xp = totalXp(state);
   const lvl = levelInfo(xp);
   const s = streak(state);
-  const skill = overall(skillScores(state, group), profile.position === 'Tor');
+  const [match, setMatch] = useState<NextMatch | null>(null);
+  const team = teams.find((t) => t.status === 'approved');
 
-  const today = dayKey(new Date());
-  const doneToday =
-    state.logs.filter((l) => dayKey(l.date) === today).length + state.diary.filter((d) => dayKey(d.date) === today).length;
-  const toConfirm = state.logs.filter((l) => !l.playerConfirmed && l.status === 'pending');
+  useEffect(() => {
+    if (!team) return setMatch(null);
+    supabase.rpc('team_schedule', { p_team: team.teamId }).then(({ data }) => {
+      const next = ((data as NextMatch[]) ?? []).find((m) => new Date(m.kickoff).getTime() >= Date.now()) ?? null;
+      setMatch(next);
+    });
+  }, [team]);
 
-  // Tagesvorschläge: wechseln täglich, ohne bereits Gemeistertes
+  // Wochenleiste Mo–So
+  const days = activeDays(state);
+  const start = weekStart();
+  const todayKey = dayKey(new Date());
+  const week = DAYS.map((label, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const k = dayKey(d);
+    return { label, done: days.has(k), today: k === todayKey, future: k > todayKey };
+  });
+
+  // Mission: wechselt täglich, ohne bereits Gemeistertes
   const all = exercisesFor(group);
-  const seed = Number(today.replace(/-/g, '')) % all.length;
+  const seed = Number(todayKey.replace(/-/g, '')) % all.length;
   const rotated = [...all.slice(seed), ...all.slice(0, seed)];
-  const suggestions = rotated
-    .filter((e) => (premium ? bestLevel(state.logs, e.id) !== 'gold' : !bestLevel(state.logs, e.id)))
-    .slice(0, 3);
-  const main = suggestions[0];
+  const mission = rotated.find((e) => (premium ? bestLevel(state.logs, e.id) !== 'gold' : !bestLevel(state.logs, e.id))) ?? rotated[0];
+  const missionLevel: Level = premium ? NEXT[bestLevel(state.logs, mission.id) ?? 'none'] : 'bronze';
+  const missionTarget = targetFor(mission, missionLevel, group);
+  const doneToday = state.logs.some((l) => dayKey(l.date) === todayKey) || state.diary.some((d) => dayKey(d.date) === todayKey);
 
-  const tips = DAILY_TIPS.filter(
-    (t) =>
-      (!t.minGroup || groupIndex(t.minGroup) <= groupIndex(group)) &&
-      (!t.maxGroup || groupIndex(group) <= groupIndex(t.maxGroup)),
-  );
-  const tip = tips[Number(today.replace(/-/g, '')) % tips.length];
-
+  const toConfirm = state.logs.filter((l) => !l.playerConfirmed && l.status === 'pending');
   const challenges = weeklyChallenges();
-  const doneChallenges = challenges.filter((c) => challengeProgress(state, c) >= c.target).length;
+  const tips = DAILY_TIPS.filter(
+    (t) => (!t.minGroup || groupIndex(t.minGroup) <= groupIndex(group)) && (!t.maxGroup || groupIndex(group) <= groupIndex(t.maxGroup)),
+  );
+  const tip = tips[Number(todayKey.replace(/-/g, '')) % tips.length];
 
   return (
     <Screen>
       <Row style={{ justifyContent: 'space-between' }}>
-        <View style={{ flex: 1 }}>
-          <T color="textSecondary">Hallo,</T>
-          <T size={28} weight="800" numberOfLines={1}>
-            {profile.nickname} 👋
-          </T>
-        </View>
-        <View style={{ alignItems: 'center' }} accessibilityLabel={`${s} Tage in Folge aktiv`}>
-          <T size={26}>🔥</T>
-          <T weight="800">{s} Tage</T>
+        <Logo size={40} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.backgroundElement }}>
+          <Icon.Flame size={16} color={theme.primary} />
+          <Text style={{ color: theme.text, fontFamily: Font.black, fontSize: 14 }}>{s}</Text>
         </View>
       </Row>
 
+      <H size={52}>Hi, {profile.nickname}</H>
+
       {toConfirm.length > 0 && (
-        <Card style={{ borderColor: theme.accent, borderWidth: 2 }} onPress={() => router.push('/tagebuch')}>
-          <T weight="800">📝 {toConfirm.length === 1 ? '1 Eintrag' : `${toConfirm.length} Einträge`} vom Trainer</T>
-          <T size={14}>Dein Trainer hat Ergebnisse für dich eingetragen. Bitte im Tagebuch kurz bestätigen.</T>
+        <Card style={{ borderColor: theme.primary }} onPress={() => router.push('/tagebuch')}>
+          <Label color="primary">Vom Trainer eingetragen</Label>
+          <T weight="700">{toConfirm.length === 1 ? '1 Ergebnis' : `${toConfirm.length} Ergebnisse`} warten auf deine Bestätigung</T>
         </Card>
       )}
 
-      <Card style={{ backgroundColor: theme.primary, borderColor: theme.primary }}>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <View>
-            <T color="primaryText" size={14} weight="600">
-              Level {lvl.level} · {lvl.title}
-            </T>
-            <T color="primaryText" size={34} weight="800">
-              {xp} XP
-            </T>
+      <Card style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14 }}>
+        {week.map((d) => (
+          <View key={d.label} style={{ alignItems: 'center', gap: 6 }}>
+            <Text style={{ color: d.today ? theme.text : theme.textSecondary, fontFamily: Font.semibold, fontSize: 11 }}>{d.label}</Text>
+            <View
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 999,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: d.done ? theme.primary : d.future ? 'transparent' : theme.backgroundSelected,
+                borderWidth: d.today && !d.done ? 1.5 : 0,
+                borderColor: theme.primary,
+              }}>
+              {d.done && <Text style={{ color: theme.primaryText, fontFamily: Font.black, fontSize: 13 }}>✓</Text>}
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <T color="primaryText" size={12} weight="700">
-              SKILL (0–99)
+        ))}
+      </Card>
+
+      <Card style={{ borderColor: theme.primary, padding: 0, overflow: 'hidden', gap: 0 }}>
+        <View style={{ height: 84, justifyContent: 'flex-end', paddingHorizontal: 18, paddingBottom: 10, backgroundColor: theme.primarySoft }}>
+          <Label color="primary">{doneToday ? 'Weiter geht’s' : 'Deine Mission heute'}</Label>
+        </View>
+        <View style={{ padding: 18, gap: 10 }}>
+          <H size={38}>{mission.title}</H>
+          <Row style={{ flexWrap: 'wrap' }}>
+            <Pill text={LEVELS.find((l) => l.id === missionLevel)!.label} color={levelColors[missionLevel].bg} textColor={levelColors[missionLevel].fg} />
+            <T size={15} color="textSecondary">
+              {mission.measure === 'check' ? `ca. ${mission.minutes} Min.` : `Ziel: ${String(missionTarget).replace('.', ',')} ${mission.unit}`}
             </T>
-            <T color="primaryText" size={30} weight="800">
-              {skill}
-            </T>
-          </View>
+          </Row>
+          <Button title={doneToday ? 'Noch eine Übung' : 'Los geht’s'} onPress={() => router.push({ pathname: '/uebung/[id]', params: { id: mission.id } })} />
+        </View>
+      </Card>
+
+      <Card>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <H size={22}>
+            Level {lvl.level} · {lvl.title}
+          </H>
+          <Num size={22}>
+            {xp.toLocaleString('de-DE')} <Text style={{ fontSize: 14, color: theme.textSecondary }}>XP</Text>
+          </Num>
         </Row>
-        <Progress value={lvl.progress} color={theme.accent} />
-        <T color="primaryText" size={13}>
+        <Progress value={lvl.progress} />
+        <T size={13} color="textSecondary">
           Noch {lvl.needed - lvl.current} XP bis Level {lvl.level + 1} · {AGE_GROUP_LABEL[group]}
         </T>
       </Card>
 
-      {main && (
-        <Card style={{ borderColor: theme.primary, borderWidth: 2 }}>
-          <T size={13} weight="700" color="textSecondary">
-            {doneToday === 0 ? 'DEINE ÜBUNG FÜR HEUTE' : 'WEITER GEHT’S'}
-          </T>
-          <Row>
-            <T size={36}>{main.emoji}</T>
-            <View style={{ flex: 1 }}>
-              <T size={18} weight="800">
-                {main.title}
+      {match && team && (
+        <Card onPress={() => router.push('/team')}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Label>Nächstes Spiel</Label>
+            <T size={12} color="textSecondary">
+              {match.competition ?? ''}
+            </T>
+          </Row>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+              <Crest text={team.teamName} primary />
+              <T size={13} weight="600" style={{ textAlign: 'center' }}>
+                {match.is_home ? team.teamName : match.opponent}
               </T>
-              <T size={14} color="textSecondary">
-                ca. {main.minutes} Min. · {main.equipment}
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <T size={12} color="textSecondary">
+                {new Date(match.kickoff).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+              </T>
+              <Num size={32}>{new Date(match.kickoff).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</Num>
+            </View>
+            <View style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+              <Crest text={match.is_home ? match.opponent : team.teamName} primary={!match.is_home} />
+              <T size={13} weight="600" style={{ textAlign: 'center' }}>
+                {match.is_home ? match.opponent : team.teamName}
               </T>
             </View>
           </Row>
-          <Button
-            title={doneToday === 0 ? '▶ Jetzt trainieren – Serie halten' : '▶ Jetzt trainieren'}
-            onPress={() => router.push({ pathname: '/uebung/[id]', params: { id: main.id } })}
-          />
         </Card>
       )}
 
-      <Row>
-        <Stat emoji="✅" value={String(doneToday)} label="heute" />
-        <Stat emoji="🏆" value={`${doneChallenges}/${challenges.length}`} label="Wochenziele" onPress={() => router.push('/challenges')} />
-        <Stat emoji="📓" value={String(state.diary.length)} label="Tagebuch" onPress={() => router.push('/tagebuch')} />
-      </Row>
-
-      {suggestions.length > 1 && <SectionTitle>Auch gut für heute</SectionTitle>}
-      {suggestions.slice(1).map((e) => {
-        const best = bestLevel(state.logs, e.id);
-        const next = premium ? NEXT[best ?? 'none'] : 'bronze';
-        const lv = LEVELS.find((l) => l.id === next)!;
-        const target = targetFor(e, next, group);
+      <Pressable onPress={() => router.push('/challenges')} accessibilityRole="button">
+        <Row style={{ justifyContent: 'space-between', marginTop: 6 }}>
+          <H size={26}>Challenges der Woche</H>
+          <Icon.Chevron color={theme.textSecondary} />
+        </Row>
+      </Pressable>
+      {challenges.map((c) => {
+        const p = challengeProgress(state, c);
+        const claimed = state.claimed.some((k) => k.endsWith(`:${c.id}`));
         return (
-          <Card key={e.id} onPress={() => router.push({ pathname: '/uebung/[id]', params: { id: e.id } })}>
-            <Row>
-              <T size={30}>{e.emoji}</T>
-              <View style={{ flex: 1 }}>
-                <T weight="700">{e.title}</T>
-                <T size={13} color="textSecondary">
-                  {e.measure === 'check' ? e.variant[next] : `Ziel: ${String(target).replace('.', ',')} ${e.unit}`}
-                </T>
-              </View>
-              <Pill text={lv.label} color={levelColors[next].bg} textColor={levelColors[next].fg} />
+          <Card key={c.id} onPress={() => router.push('/challenges')} style={{ gap: 10 }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <T weight="700" style={{ flex: 1 }}>
+                {c.title}
+              </T>
+              <Num size={18} color={claimed ? 'textSecondary' : 'primary'}>
+                {claimed ? '✓' : `+${c.xp}`}
+              </Num>
             </Row>
+            <Progress value={p / c.target} height={8} />
           </Card>
         );
       })}
 
-      <Card style={{ backgroundColor: theme.primarySoft, borderColor: theme.primarySoft }}>
-        <T weight="700">💡 Tipp des Tages</T>
-        <T size={14}>{tip.text}</T>
+      <Card style={{ backgroundColor: theme.primarySoft }}>
+        <Label color="primary">Tipp des Tages</Label>
+        <T size={15}>{tip.text}</T>
       </Card>
-
-      <Row style={{ gap: 8 }}>
-        <Button title="+ Tagebuch" variant="secondary" style={{ flex: 1 }} onPress={() => router.push('/eintrag')} />
-        <Button title="Alle Übungen" variant="secondary" style={{ flex: 1 }} onPress={() => router.push('/training')} />
-      </Row>
     </Screen>
+  );
+}
+
+function Crest({ text, primary }: { text: string; primary?: boolean }) {
+  const theme = useTheme();
+  const initials = text
+    .replace(/[^A-Za-zÄÖÜäöüß0-9 ]/g, '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+  return (
+    <View
+      style={{
+        width: 48,
+        height: 48,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: primary ? theme.primary : theme.backgroundSelected,
+      }}>
+      <Text style={{ color: primary ? theme.primaryText : theme.text, fontFamily: Font.black, fontSize: 14 }}>{initials}</Text>
+    </View>
   );
 }

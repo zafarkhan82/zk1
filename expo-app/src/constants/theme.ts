@@ -2,78 +2,57 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#0E1A12',
-    background: '#F4F7F5',
-    backgroundElement: '#FFFFFF',
-    backgroundSelected: '#E3EEE7',
-    textSecondary: '#5B6B61',
-    border: '#DCE5DF',
-    primary: '#118C4F',
-    primaryText: '#FFFFFF',
-    primarySoft: '#DDF3E6',
-    accent: '#F2A900',
-    /** Akzent als Textfarbe (Kontrast ≥ 4,5:1 auf Weiß) */
-    accentText: '#8A5A00',
-    danger: '#B42318',
-    bronze: '#8C5524',
-    silber: '#C9D0D6',
-    gold: '#F2C94C',
-    /** Schrift auf Stufen-Plaketten */
-    onBronze: '#FFFFFF',
-    onSilber: '#1F2933',
-    onGold: '#3D2E00',
-    bronzeText: '#8C5524',
-    silberText: '#56616B',
-    goldText: '#8A5A00',
-  },
-  dark: {
-    text: '#EEF4F0',
-    background: '#0B110D',
-    backgroundElement: '#16201A',
-    backgroundSelected: '#1F2E25',
-    textSecondary: '#9DB0A4',
-    border: '#26352C',
-    primary: '#2FBF71',
-    primaryText: '#04140A',
-    primarySoft: '#143323',
-    accent: '#F5B82E',
-    accentText: '#F5B82E',
-    danger: '#FF8A80',
-    bronze: '#D08A50',
-    silber: '#AEB8C0',
-    gold: '#E8B830',
-    onBronze: '#1F1206',
-    onSilber: '#11161A',
-    onGold: '#1F1700',
-    bronzeText: '#E0A06A',
-    silberText: '#C3CBD2',
-    goldText: '#F5C94C',
-  },
+/**
+ * Go4Pro – „Electric Cyan“: dunkler Grund, eine Signalfarbe.
+ * Die App ist bewusst immer dunkel (wie Flutlicht-Abende); hell und dunkel nutzen dieselben Werte.
+ */
+const cyan = {
+  text: '#F2F6FA',
+  background: '#0A0D12',
+  backgroundElement: '#161D27',
+  backgroundSelected: '#232D3A',
+  textSecondary: '#A7B3C2',
+  border: '#2A3442',
+  primary: '#19E3FF',
+  primaryText: '#04141B',
+  primarySoft: '#0F2E38',
+  accent: '#19E3FF',
+  accentText: '#19E3FF',
+  danger: '#FF6B6B',
+  success: '#1E9E5A',
+  bar: '#0E131A',
+  bronze: '#C77A3D',
+  silber: '#D7DEE5',
+  gold: '#F5C84B',
+  onBronze: '#1A0E04',
+  onSilber: '#18202A',
+  onGold: '#2A1F00',
+  bronzeText: '#E0A06A',
+  silberText: '#D7DEE5',
+  goldText: '#F5C84B',
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export const Colors = { light: cyan, dark: cyan } as const;
+
+export type ThemeColor = keyof typeof cyan;
+
+/** Schriften: Barlow Condensed (kursiv) für Titel und Zahlen, Inter für Text. */
+export const Font = {
+  display: 'BarlowCondensed_900Black_Italic',
+  displayBold: 'BarlowCondensed_800ExtraBold_Italic',
+  number: 'BarlowCondensed_800ExtraBold',
+  label: 'BarlowCondensed_700Bold',
+  body: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+  black: 'Inter_800ExtraBold',
+} as const;
 
 export const Fonts = Platform.select({
-  ios: {
-    sans: 'system-ui',
-    serif: 'ui-serif',
-    rounded: 'ui-rounded',
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
+  ios: { sans: 'system-ui', serif: 'ui-serif', rounded: 'ui-rounded', mono: 'ui-monospace' },
+  default: { sans: 'normal', serif: 'serif', rounded: 'normal', mono: 'monospace' },
+  web: { sans: 'var(--font-display)', serif: 'var(--font-serif)', rounded: 'var(--font-rounded)', mono: 'var(--font-mono)' },
 });
 
 export const Spacing = {

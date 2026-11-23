@@ -61,7 +61,7 @@ export default function Challenges() {
   };
 
   return (
-    <Screen>
+    <Screen bottomBar={false} topInset={false}>
       <Celebration info={celebration} onClose={() => setCelebration(null)} />
       <View>
         <T size={28} weight="800">

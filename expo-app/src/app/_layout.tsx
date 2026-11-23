@@ -1,8 +1,18 @@
-import { DarkTheme, DefaultTheme, ThemeProvider, type ErrorBoundaryProps } from 'expo-router';
+import { BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed/700Bold';
+import { BarlowCondensed_800ExtraBold } from '@expo-google-fonts/barlow-condensed/800ExtraBold';
+import { BarlowCondensed_800ExtraBold_Italic } from '@expo-google-fonts/barlow-condensed/800ExtraBold_Italic';
+import { BarlowCondensed_900Black_Italic } from '@expo-google-fonts/barlow-condensed/900Black_Italic';
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
+import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
+import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
+import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
+import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
+import { useFonts } from 'expo-font';
+import { DarkTheme, ThemeProvider, type ErrorBoundaryProps } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, useColorScheme } from 'react-native';
+import { Platform, Pressable, ScrollView, Text } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -37,13 +47,23 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 function RootStack() {
   const auth = useAuth();
   const store = useStore();
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const c = Colors[scheme];
+  const c = Colors.dark;
+  const [fontsLoaded, fontError] = useFonts({
+    BarlowCondensed_700Bold,
+    BarlowCondensed_800ExtraBold,
+    BarlowCondensed_800ExtraBold_Italic,
+    BarlowCondensed_900Black_Italic,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
 
   // Nur beim allerersten Start warten. Danach bleibt die Navigation immer stehen –
   // spätere Ladezustände (z. B. nach dem Anmelden) zeigen die Screens selbst an.
   const [booted, setBooted] = useState(false);
-  const initialReady = auth.ready && (!auth.session || store.ready);
+  const initialReady = (fontsLoaded || !!fontError) && auth.ready && (!auth.session || store.ready);
   useEffect(() => {
     if (initialReady && !booted) {
       setBooted(true);
@@ -58,6 +78,7 @@ function RootStack() {
       screenOptions={{
         headerStyle: { backgroundColor: c.background },
         headerTintColor: c.text,
+        headerTitleStyle: { fontFamily: 'BarlowCondensed_800ExtraBold_Italic', fontSize: 22 },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: c.background },
         headerBackTitle: 'Zurück',
@@ -68,7 +89,8 @@ function RootStack() {
       <Stack.Screen name="uebung/[id]" options={{ title: 'Übung' }} />
       <Stack.Screen name="eintrag" options={{ title: 'Neuer Tagebucheintrag', presentation: 'modal' }} />
       <Stack.Screen name="premium" options={{ title: 'Premium', presentation: 'modal' }} />
-      <Stack.Screen name="team" options={{ title: 'Mein Team' }} />
+      <Stack.Screen name="tagebuch" options={{ title: 'Tagebuch' }} />
+      <Stack.Screen name="challenges" options={{ title: 'Challenges' }} />
       <Stack.Screen name="admin" options={{ title: 'Admin' }} />
       <Stack.Screen name="trainer/index" options={{ title: 'Trainer-Bereich' }} />
       <Stack.Screen name="trainer/team/[id]" options={{ title: 'Team' }} />
@@ -77,10 +99,14 @@ function RootStack() {
   );
 }
 
+const NavTheme = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: Colors.dark.background, card: Colors.dark.background, text: Colors.dark.text, primary: Colors.dark.primary, border: Colors.dark.border },
+};
+
 export default function RootLayout() {
-  const scheme = useColorScheme();
   return (
-    <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={NavTheme}>
       <AuthProvider>
         <StoreProvider>
           <RootStack />

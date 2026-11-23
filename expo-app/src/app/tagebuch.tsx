@@ -41,7 +41,7 @@ export default function Diary() {
   ].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <Screen>
+    <Screen bottomBar={false} topInset={false}>
       <Row style={{ justifyContent: 'space-between' }}>
         <T size={28} weight="800">
           Tagebuch

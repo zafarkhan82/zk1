@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, Pressable, Text, View, type ViewStyle } from 'react-native';
 
-import { Button, Card, Checkbox, Chip, Progress, Row, Screen, SectionTitle, T, Wrap } from '@/components/ui';
+import { Icon } from '@/components/icons';
+import { Button, Card, Checkbox, Chip, H, Label, Num, Row, Screen, SectionTitle, Stat, T, Wrap } from '@/components/ui';
+import { Font } from '@/constants/theme';
 import { CATEGORIES } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, uClass } from '@/lib/age';
@@ -10,20 +12,41 @@ import { useAuth } from '@/lib/auth';
 import { badges, confirmedXp, levelInfo, overall, skillScores, totalXp } from '@/lib/game';
 import { useStore } from '@/lib/store';
 import { errorText } from '@/lib/supabase';
+import type { Category } from '@/lib/types';
 
-export default function ProfileScreen() {
+const SHORT: Record<Category, string> = {
+  ballkontrolle: 'BAL',
+  dribbling: 'DRI',
+  passen: 'PAS',
+  schiessen: 'SCH',
+  koordination: 'KOO',
+  athletik: 'ATH',
+  kopf: 'KOP',
+  torwart: 'TOR',
+};
+const POS_SHORT: Record<string, string> = { Tor: 'TW', Abwehr: 'AB', Mittelfeld: 'MF', Sturm: 'ST', 'Noch offen': '—' };
+
+export default function Ich() {
   const { session, signOut } = useAuth();
-  const { state, group, players, premium, isAdmin, teams, selectPlayer, setPublicConsent } = useStore();
+  const { state, group, players, premium, isAdmin, isStaff, teams, selectPlayer, setPublicConsent } = useStore();
   const theme = useTheme();
   const [error, setError] = useState('');
   const profile = state.profile!;
   const scores = skillScores(state, group);
+  const isGk = profile.position === 'Tor';
   const xp = totalXp(state);
   const lvl = levelInfo(xp);
   const list = badges(state, group);
   const earned = list.filter((b) => b.earned).length;
   const confirmed = state.logs.filter((l) => l.status === 'confirmed').length;
-  const team = teams.find((t) => t.status === 'approved') ?? teams[0];
+  const golds = state.logs.filter((l) => l.level === 'gold' && l.achieved).length;
+  const team = teams.find((t) => t.status === 'approved');
+  const attrs = CATEGORIES.filter((c) => (isGk ? c.id !== 'kopf' : c.id !== 'torwart')).slice(0, 6);
+
+  const cardBg =
+    Platform.OS === 'web'
+      ? ({ backgroundImage: `linear-gradient(160deg, #103A46 0%, ${theme.backgroundElement} 70%)` } as unknown as ViewStyle)
+      : { backgroundColor: theme.backgroundElement };
 
   const toggleConsent = async (v: boolean) => {
     setError('');
@@ -33,6 +56,30 @@ export default function ProfileScreen() {
       setError(errorText(e));
     }
   };
+
+  const LinkRow = ({ label, hint, onPress, highlight }: { label: string; hint?: string; onPress: () => void; highlight?: boolean }) => (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: 60,
+        paddingHorizontal: 18,
+        borderRadius: 18,
+        backgroundColor: highlight ? 'transparent' : theme.backgroundElement,
+        borderWidth: highlight ? 1.5 : 0,
+        borderColor: theme.primary,
+        opacity: pressed ? 0.85 : 1,
+      })}>
+      <Text style={{ color: theme.text, fontFamily: Font.bold, fontSize: 16 }}>{label}</Text>
+      <Row style={{ gap: 6 }}>
+        {!!hint && <Text style={{ color: highlight ? theme.primary : theme.textSecondary, fontFamily: Font.medium, fontSize: 14 }}>{hint}</Text>}
+        <Icon.Chevron color={highlight ? theme.primary : theme.textSecondary} />
+      </Row>
+    </Pressable>
+  );
 
   return (
     <Screen>
@@ -44,66 +91,55 @@ export default function ProfileScreen() {
         </Wrap>
       )}
 
-      <Card style={{ alignItems: 'center' }}>
-        <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
-          <T size={34} weight="800" color="primaryText">
-            {overall(scores, profile.position === 'Tor')}
-          </T>
-        </View>
-        <Row>
-          <T size={24} weight="800">
-            {profile.nickname}
-          </T>
-          {premium && <T size={20}>⭐</T>}
+      <H size={44}>Deine Karte</H>
+
+      <View style={[{ borderRadius: 28, padding: 22, gap: 14, borderWidth: 1.5, borderColor: theme.primary }, cardBg]}>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View>
+            <Num size={72} color="primary" style={{ lineHeight: 70 }}>
+              {overall(scores, isGk)}
+            </Num>
+            <Label color="text">{POS_SHORT[profile.position] ?? '—'}</Label>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            {team?.jerseyNumber != null && <Num size={40}>#{team.jerseyNumber}</Num>}
+            <T size={13} color="textSecondary">
+              {team ? `${team.clubName} · ` : ''}
+              {AGE_GROUP_LABEL[group]} (U{uClass(profile.birthYear)})
+            </T>
+          </View>
         </Row>
-        <T color="textSecondary" size={14} style={{ textAlign: 'center' }}>
-          {AGE_GROUP_LABEL[group]} (U{uClass(profile.birthYear)}) · {profile.position}
-          {team ? ` · ${team.clubName}` : ''}
+        <Row style={{ alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <H size={40} numberOfLines={1} style={{ flex: 1 }}>
+            {profile.nickname}
+          </H>
+          {premium && <Label color="primary">Premium</Label>}
+        </Row>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 }}>
+          {attrs.map((c) => (
+            <View key={c.id} style={{ width: '33.33%', flexDirection: 'row', alignItems: 'baseline', gap: 6 }} accessibilityLabel={`${c.label} ${scores[c.id]}`}>
+              <Num size={26}>{scores[c.id]}</Num>
+              <Label>{SHORT[c.id]}</Label>
+            </View>
+          ))}
+        </View>
+        <T size={13} color="textSecondary">
+          Level {lvl.level} · {lvl.title} · {xp.toLocaleString('de-DE')} XP
         </T>
-        <T weight="700">
-          Level {lvl.level} · {lvl.title} · {xp} XP
-        </T>
-        <T size={12} color="textSecondary">
-          Spieler-Code: {profile.code}
-        </T>
-      </Card>
+      </View>
 
       <Row>
-        <Card style={{ flex: 1 }} onPress={() => router.push('/team')}>
-          <T size={22}>👥</T>
-          <T weight="700">{team ? team.teamName : 'Team beitreten'}</T>
-          <T size={12} color="textSecondary">
-            {team ? (team.status === 'approved' ? team.clubName : 'wartet auf Trainer') : 'mit Code vom Trainer'}
-          </T>
-        </Card>
-        <Card style={{ flex: 1, borderColor: premium ? theme.primary : theme.accent }} onPress={() => router.push('/premium')}>
-          <T size={22}>⭐</T>
-          <T weight="700">{premium ? 'Premium aktiv' : 'Premium'}</T>
-          <T size={12} color="textSecondary">
-            {premium ? 'alle Funktionen' : '20 € / Jahr'}
-          </T>
-        </Card>
+        <Stat label="Gold" value={String(golds)} />
+        <Stat label="Freigaben" value={String(confirmed)} />
+        <Stat label="Abzeichen" value={`${earned}/${list.length}`} />
       </Row>
 
-      <SectionTitle>Skills</SectionTitle>
-      <Card>
-        {CATEGORIES.filter((c) => c.id !== 'torwart' || profile.position === 'Tor' || scores.torwart > 0).map((c) => (
-          <View key={c.id} style={{ gap: 4 }}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <T size={14} weight="600">
-                {c.emoji} {c.label}
-              </T>
-              <T size={14} weight="800">
-                {scores[c.id]}
-              </T>
-            </Row>
-            <Progress value={scores[c.id] / 99} />
-          </View>
-        ))}
-      </Card>
+      <LinkRow label="Tagebuch" hint={`${state.diary.length} Einträge`} onPress={() => router.push('/tagebuch')} />
+      <LinkRow label="Challenges" onPress={() => router.push('/challenges')} />
+      <LinkRow label={premium ? 'Premium aktiv' : 'Premium für Eltern'} hint={premium ? 'alle Funktionen' : '20 € / Jahr'} highlight={!premium} onPress={() => router.push('/premium')} />
 
       <SectionTitle right={<T color="textSecondary">{earned}/{list.length}</T>}>Abzeichen</SectionTitle>
-      <Wrap>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {list.map((b) => (
           <Card
             key={b.id}
@@ -112,10 +148,11 @@ export default function ProfileScreen() {
               minWidth: 96,
               flexGrow: 1,
               alignItems: 'center',
+              borderColor: b.earned ? theme.primary : theme.border,
               borderStyle: b.earned ? 'solid' : 'dashed',
-              backgroundColor: b.earned ? theme.backgroundElement : theme.background,
+              backgroundColor: b.earned ? theme.backgroundElement : 'transparent',
             }}>
-            <T size={28} style={{ opacity: b.earned ? 1 : 0.4 }}>
+            <T size={26} style={{ opacity: b.earned ? 1 : 0.35 }}>
               {b.emoji}
             </T>
             <T size={13} weight="700" style={{ textAlign: 'center' }}>
@@ -126,49 +163,32 @@ export default function ProfileScreen() {
             </T>
           </Card>
         ))}
-      </Wrap>
+      </View>
 
-      <SectionTitle>Bestätigte Leistungen</SectionTitle>
-      <Card>
-        <T weight="700">
-          {confirmed} bestätigt · {confirmedXp(state)} Ranglisten-Punkte
-        </T>
-        <T size={13} color="textSecondary">
-          Bestätigt heißt: Spieler bzw. Eltern und Trainer haben den Eintrag per E-Mail bestätigt.
-        </T>
-      </Card>
-
-      <SectionTitle>Privatsphäre</SectionTitle>
+      <SectionTitle>Einstellungen</SectionTitle>
       <Card>
         <Checkbox
           checked={profile.publicConsent}
           onChange={toggleConsent}
-          label="In öffentlichen Ranglisten und in der Spielersuche zeigen (Spitzname, Jahrgang, Verein, bestätigte Leistungen). Nur mit Premium sichtbar."
+          label="Ab der C-Jugend in Ranglisten und der Spielersuche zeigen (Spitzname, Jahrgang, Verein, freigegebene Leistungen). Nur mit Premium."
         />
-        {!profile.managedByGuardian && (
-          <T size={12} color="textSecondary">
-            Eigenes Spielerkonto (ab 16).
-          </T>
-        )}
         {!!error && (
           <T size={13} style={{ color: theme.danger }}>
             {error}
           </T>
         )}
+        <T size={12} color="textSecondary">
+          {confirmedXp(state)} Ranglisten-Punkte · Spieler-Code {profile.code}
+        </T>
       </Card>
-
-      <SectionTitle>Konto</SectionTitle>
+      <LinkRow label="Weiteres Kind anlegen" onPress={() => router.push('/onboarding')} />
+      <LinkRow label="Trainer-Bereich" hint={isStaff ? 'Freigaben & Teams' : undefined} onPress={() => router.push('/trainer')} />
+      {isAdmin && <LinkRow label="Admin-Bereich" onPress={() => router.push('/admin')} />}
       <Card>
         <T size={13} color="textSecondary">
-          Angemeldet als {session?.user.email}
+          Angemeldet als {session?.user.email}. Einträge werden nie gelöscht. Auf Wunsch anonymisieren wir ein Profil vollständig (DSGVO).
         </T>
-        <Button title="+ Weiteres Kind anlegen" variant="secondary" onPress={() => router.push('/onboarding')} />
-        <Button title="🧑‍🏫 Trainer-Bereich" variant="secondary" onPress={() => router.push('/trainer')} />
-        {isAdmin && <Button title="🛠️ Admin-Bereich" variant="secondary" onPress={() => router.push('/admin')} />}
         <Button title="Abmelden" variant="danger" onPress={() => signOut()} />
-        <T size={12} color="textSecondary">
-          Einträge werden nie gelöscht. Auf Wunsch anonymisieren wir ein Profil vollständig (DSGVO) – schreib uns dazu.
-        </T>
       </Card>
     </Screen>
   );

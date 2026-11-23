@@ -1,11 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useState } from 'react';
-import { Share, View } from 'react-native';
+import { Pressable, Share, Text, TextInput, View } from 'react-native';
 
 import { Celebration, type CelebrationInfo } from '@/components/celebration';
-import { Button, Card, Chip, Field, Pill, Row, Screen, SectionTitle, T, useLevelColors } from '@/components/ui';
-import { Spacing } from '@/constants/theme';
+import { Button, Card, Field, H, Label, Num, Pill, Row, Screen, SectionTitle, T, useLevelColors } from '@/components/ui';
+import { Font } from '@/constants/theme';
 import { CATEGORIES, distanceFor, getExercise, isAchieved, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { bestLevel, formatDate, levelInfo, logXp, totalXp } from '@/lib/game';
@@ -14,11 +14,11 @@ import { errorText } from '@/lib/supabase';
 import type { ExerciseLog, Level } from '@/lib/types';
 
 function statusText(l: ExerciseLog): { text: string; tone: 'ok' | 'wait' | 'bad' | 'info' } {
-  if (l.status === 'confirmed') return { text: '✔ Vom Trainer freigegeben', tone: 'ok' };
-  if (l.status === 'rejected') return { text: '✖ Vom Trainer nicht freigegeben', tone: 'bad' };
-  if (!l.playerConfirmed) return { text: '📝 Vom Trainer eingetragen – bitte im Tagebuch bestätigen', tone: 'wait' };
-  if (l.requested) return { text: '⏳ Wartet auf Freigabe durch den Trainer', tone: 'wait' };
-  if (l.level !== 'bronze') return { text: 'ℹ️ Kein Trainer im Team – tritt einem Team bei, damit er freigeben kann', tone: 'info' };
+  if (l.status === 'confirmed') return { text: '✓ Vom Trainer freigegeben', tone: 'ok' };
+  if (l.status === 'rejected') return { text: '✕ Vom Trainer nicht freigegeben', tone: 'bad' };
+  if (!l.playerConfirmed) return { text: 'Vom Trainer eingetragen – bitte im Tagebuch bestätigen', tone: 'wait' };
+  if (l.requested) return { text: 'Wartet auf Freigabe durch den Trainer', tone: 'wait' };
+  if (l.level !== 'bronze') return { text: 'Kein Trainer im Team – tritt einem Team bei', tone: 'info' };
   return { text: 'Selbst erfasst', tone: 'info' };
 }
 
@@ -32,7 +32,9 @@ export default function ExerciseScreen() {
   const [level, setLevel] = useState<Level>(
     !premium ? 'bronze' : best === 'gold' ? 'gold' : best === 'silber' ? 'gold' : best === 'bronze' ? 'silber' : 'bronze',
   );
-  const [value, setValue] = useState('');
+  const lastValue = ex ? state.logs.find((l) => l.exerciseId === ex.id && l.value !== null)?.value : null;
+  const [count, setCount] = useState<number>(lastValue && ex?.measure !== 'seconds' ? Math.round(lastValue) : 0);
+  const [seconds, setSeconds] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -47,14 +49,22 @@ export default function ExerciseScreen() {
     );
   }
 
+  const isTime = ex.measure === 'seconds';
+  const isCheck = ex.measure === 'check';
+  const max = ex.measure === 'hits' ? 10 : 999;
   const locked = !premium && level !== 'bronze';
   const target = targetFor(ex, level, group);
   const distance = distanceFor(ex, group);
   const logs = state.logs.filter((l) => l.exerciseId === ex.id);
-  const numeric = value.replace(',', '.');
-  const parsed = ex.measure === 'check' ? null : numeric.trim() === '' ? NaN : Number(numeric);
-  const canSave = ex.measure === 'check' || (parsed !== null && !Number.isNaN(parsed) && parsed >= 0);
+  const parsedSeconds = Number(seconds.replace(',', '.'));
+  const value: number | null = isCheck ? null : isTime ? (seconds.trim() === '' ? NaN : parsedSeconds) : count;
+  const canSave = isCheck || (value !== null && !Number.isNaN(value) && value >= 0 && (!isTime || value > 0));
   const cat = CATEGORIES.find((c) => c.id === ex.category);
+  const record = (() => {
+    const vals = logs.filter((l) => l.level === level && l.value !== null).map((l) => l.value as number);
+    if (!vals.length) return null;
+    return ex.lowerIsBetter ? Math.min(...vals) : Math.max(...vals);
+  })();
 
   const save = async () => {
     if (!canSave || locked) return;
@@ -62,21 +72,21 @@ export default function ExerciseScreen() {
     setError('');
     try {
       const before = levelInfo(totalXp(state));
-      const prev = logs.filter((l) => l.level === level && l.value !== null).map((l) => l.value as number);
-      const log = await addLog({ exerciseId: ex.id, level, value: parsed, note: note.trim() });
+      const log = await addLog({ exerciseId: ex.id, level, value, note: note.trim() });
       const after = levelInfo(totalXp({ ...state, logs: [log, ...state.logs] }));
-      const personalBest =
-        parsed !== null && prev.length > 0 && (ex.lowerIsBetter ? parsed < Math.min(...prev) : parsed > Math.max(...prev));
+      const personalBest = value !== null && record !== null && (ex.lowerIsBetter ? value < record : value > record);
       setLastLog(log);
       setCelebration({
         xp: logXp(log),
-        achieved: log.achieved || isAchieved(ex, level, group, parsed),
+        achieved: log.achieved || isAchieved(ex, level, group, value),
         personalBest,
         levelUp: after.level > before.level ? { level: after.level, title: after.title } : null,
         waitingForTrainer: log.requested && !log.trainerConfirmed,
-        isCheck: ex.measure === 'check',
+        isCheck,
+        value: value !== null ? `${String(value).replace('.', ',')}` : null,
+        unit: ex.unit,
       });
-      setValue('');
+      setSeconds('');
       setNote('');
     } catch (e) {
       setError(errorText(e));
@@ -87,117 +97,162 @@ export default function ExerciseScreen() {
 
   const challengeFriend = async (log: ExerciseLog) => {
     const valueText = log.value !== null ? `${String(log.value).replace('.', ',')} ${ex.unit}` : 'geschafft';
-    const message = `⚽ Go4Pro-Duell!\nIch habe bei „${ex.title}“ (${LEVELS.find((l) => l.id === log.level)!.label}) ${valueText}. Schaffst du ${ex.lowerIsBetter ? 'eine bessere Zeit' : 'mehr'}?`;
     try {
-      await Share.share({ message });
+      await Share.share({
+        message: `⚽ Go4Pro-Duell!\nIch habe bei „${ex.title}“ (${LEVELS.find((l) => l.id === log.level)!.label}) ${valueText}. Schaffst du ${ex.lowerIsBetter ? 'eine bessere Zeit' : 'mehr'}?`,
+      });
     } catch {
       // abgebrochen
     }
   };
 
+  const StepBtn = ({ label, onPress, primary }: { label: string; onPress: () => void; primary?: boolean }) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label === '+' ? 'Mehr' : 'Weniger'}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        width: 64,
+        height: 64,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: primary ? theme.primary : 'transparent',
+        borderWidth: 1.5,
+        borderColor: primary ? theme.primary : theme.border,
+        opacity: pressed ? 0.8 : 1,
+      })}>
+      <Text style={{ color: primary ? theme.primaryText : theme.text, fontFamily: Font.black, fontSize: 30, lineHeight: 34 }}>{label}</Text>
+    </Pressable>
+  );
+
   return (
     <Screen bottomBar={false} topInset={false}>
-      <Stack.Screen options={{ title: ex.title }} />
+      <Stack.Screen options={{ title: '' }} />
       <Celebration info={celebration} onClose={() => setCelebration(null)} />
 
-      <Row>
-        <T size={40}>{ex.emoji}</T>
-        <View style={{ flex: 1 }}>
-          <T size={13} color="textSecondary">
-            {cat?.emoji} {cat?.label} · ca. {ex.minutes} Min. · {ex.equipment}
-          </T>
-          <T size={15}>{ex.description}</T>
-        </View>
-      </Row>
+      <View style={{ gap: 4 }}>
+        <Label color="primary">{cat?.label}</Label>
+        <H size={48}>{ex.title}</H>
+        <T size={14} color="textSecondary">
+          ca. {ex.minutes} Min. · {ex.equipment}
+        </T>
+      </View>
 
-      <Row style={{ gap: Spacing.two }}>
+      <Row style={{ gap: 8 }}>
         {LEVELS.map((l) => {
-          const isLocked = !premium && l.id !== 'bronze';
           const selected = level === l.id;
+          const isLocked = !premium && l.id !== 'bronze';
           return (
-            <View key={l.id} style={{ flex: 1 }}>
-              <Chip
-                label={`${isLocked ? '🔒 ' : ''}${l.label}`}
-                accessibilityLabel={`${l.label}${isLocked ? ', Premium' : ''}`}
-                selected={selected}
-                color={levelColors[l.id].bg}
-                textColor={levelColors[l.id].fg}
-                onPress={() => setLevel(l.id)}
-              />
-            </View>
+            <Pressable
+              key={l.id}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`${l.label}${isLocked ? ', Premium' : ''}`}
+              onPress={() => setLevel(l.id)}
+              style={{
+                flex: 1,
+                minHeight: 78,
+                borderRadius: 18,
+                borderWidth: 2,
+                borderColor: selected ? levelColors[l.id].bg : theme.border,
+                backgroundColor: selected ? levelColors[l.id].bg : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 2,
+              }}>
+              <Text style={{ fontFamily: Font.black, fontSize: 14, color: selected ? levelColors[l.id].fg : theme.text }}>
+                {isLocked ? '🔒 ' : ''}
+                {l.label}
+              </Text>
+              {!isCheck && (
+                <Text style={{ fontFamily: Font.number, fontSize: 26, color: selected ? levelColors[l.id].fg : theme.text }}>
+                  {String(targetFor(ex, l.id, group)).replace('.', ',')}
+                </Text>
+              )}
+            </Pressable>
           );
         })}
       </Row>
 
-      <Card style={{ borderColor: levelColors[level].bg, borderWidth: 2 }}>
-        <T size={13} weight="700" style={{ color: levelColors[level].text }}>
-          {LEVELS.find((l) => l.id === level)!.label.toUpperCase()} · {LEVELS.find((l) => l.id === level)!.sub}
-        </T>
-        <T size={15}>{ex.variant[level]}</T>
-        {ex.measure !== 'check' && (
-          <T weight="800" size={20} style={{ color: levelColors[level].text }}>
-            Ziel: {ex.lowerIsBetter ? 'höchstens ' : ''}
-            {String(target).replace('.', ',')} {ex.unit}
-          </T>
-        )}
-        {distance && (
-          <T size={14} weight="600">
-            📏 Abstand für deine Altersklasse: {distance}
-          </T>
-        )}
-        {ex.measure === 'check' && (
-          <T size={13} color="textSecondary">
-            Bei dieser Übung entscheidet dein Trainer beim Freigeben, ob das Ziel geschafft ist.
-          </T>
-        )}
+      <T size={15} color="textSecondary">
+        {ex.variant[level]}
+        {!isCheck ? ` Ziel: ${ex.lowerIsBetter ? 'höchstens ' : ''}${String(target).replace('.', ',')} ${ex.unit}.` : ''}
+        {distance ? ` Abstand: ${distance}.` : ''}
+      </T>
 
-        {locked ? (
-          <>
-            <T size={14} color="textSecondary">
-              Silber und Gold gibt es mit Premium. Bronze kannst du jederzeit kostenlos eintragen.
-            </T>
-            <Button title="🔒 Premium ansehen" onPress={() => router.push('/premium')} />
-          </>
-        ) : (
-          <>
-            {ex.measure !== 'check' && (
-              <Field
-                label={`Dein Ergebnis (${ex.unit})`}
+      {locked ? (
+        <Card style={{ borderColor: theme.primary, gap: 12 }}>
+          <H size={24}>Silber und Gold mit Premium</H>
+          <T size={14} color="textSecondary">
+            Bronze kannst du jederzeit kostenlos eintragen. Silber und Gold gibt dein Trainer frei – das schalten deine Eltern frei.
+          </T>
+          <Button title="Premium ansehen" onPress={() => router.push('/premium')} />
+        </Card>
+      ) : (
+        <>
+          <Card style={{ alignItems: 'center', paddingVertical: 22, gap: 12 }}>
+            <Label>{isCheck ? 'Erledigt?' : 'Dein Ergebnis'}</Label>
+            {isCheck ? (
+              <T size={15} color="textSecondary" style={{ textAlign: 'center' }}>
+                Ob das Ziel geschafft ist, entscheidet dein Trainer beim Freigeben.
+              </T>
+            ) : isTime ? (
+              <TextInput
+                value={seconds}
+                onChangeText={setSeconds}
                 keyboardType="decimal-pad"
-                placeholder={ex.lowerIsBetter ? 'z. B. 17,5' : 'z. B. 12'}
-                value={value}
-                onChangeText={setValue}
+                placeholder="0,0"
+                placeholderTextColor={theme.backgroundSelected}
+                accessibilityLabel={`Ergebnis in ${ex.unit}`}
+                style={{ color: theme.text, fontFamily: Font.number, fontSize: 88, textAlign: 'center', minWidth: 200 }}
               />
+            ) : (
+              <Row style={{ gap: 18 }}>
+                <StepBtn label="−" onPress={() => setCount((c) => Math.max(0, c - 1))} />
+                <Num size={92} style={{ minWidth: 120, textAlign: 'center' }}>
+                  {count}
+                </Num>
+                <StepBtn label="+" primary onPress={() => setCount((c) => Math.min(max, c + 1))} />
+              </Row>
             )}
-            <Field label="Notiz (optional)" placeholder="Wie lief's?" value={note} onChangeText={setNote} maxLength={200} />
-            <Button
-              title={busy ? 'Speichere …' : ex.measure === 'check' ? 'Als erledigt eintragen' : 'Ergebnis speichern'}
-              onPress={save}
-              disabled={!canSave || busy}
-            />
-            {!!error && (
-              <T size={14} style={{ color: theme.danger }}>
-                {error}
+            {!isCheck && (
+              <T size={14} color="textSecondary">
+                {ex.unit}
+                {record !== null ? ` · Rekord: ${String(record).replace('.', ',')}` : ''}
               </T>
             )}
-          </>
-        )}
-      </Card>
-
-      {lastLog && (
-        <Button title="🤝 Freund herausfordern" variant="secondary" onPress={() => challengeFriend(lastLog)} />
+          </Card>
+          <Field label="Notiz (optional)" placeholder="Wie lief’s?" value={note} onChangeText={setNote} maxLength={200} />
+          <Button title={busy ? 'Speichere …' : isCheck ? 'Als erledigt eintragen' : 'Ergebnis speichern'} onPress={save} disabled={!canSave || busy} />
+          {level !== 'bronze' && (
+            <T size={13} color="textSecondary" style={{ textAlign: 'center' }}>
+              Silber und Gold gibt dein Trainer frei.
+            </T>
+          )}
+          {!!error && (
+            <T size={14} style={{ color: theme.danger }}>
+              {error}
+            </T>
+          )}
+        </>
       )}
 
-      <SectionTitle>So geht's</SectionTitle>
+      {lastLog && <Button title="Freund herausfordern" variant="secondary" onPress={() => challengeFriend(lastLog)} />}
+
+      <SectionTitle>So geht’s</SectionTitle>
       <Card>
         {ex.steps.map((s, i) => (
-          <T key={i} size={15}>
-            {i + 1}. {s}
-          </T>
+          <Row key={i} style={{ alignItems: 'flex-start', gap: 12 }}>
+            <Num size={20} color="primary">
+              {i + 1}
+            </Num>
+            <T size={15} style={{ flex: 1 }}>
+              {s}
+            </T>
+          </Row>
         ))}
-        <T weight="700" style={{ marginTop: Spacing.two }}>
-          Profi-Tipps
-        </T>
+        <Label style={{ marginTop: 8 }}>Profi-Tipps</Label>
         {ex.tips.map((s, i) => (
           <T key={i} size={14} color="textSecondary">
             • {s}
@@ -205,7 +260,7 @@ export default function ExerciseScreen() {
         ))}
       </Card>
 
-      {logs.length > 0 && <SectionTitle>Deine Einträge ({logs.length})</SectionTitle>}
+      {logs.length > 0 && <SectionTitle>Deine Einträge</SectionTitle>}
       {logs.map((l) => {
         const st = statusText(l);
         const color = st.tone === 'ok' ? theme.primary : st.tone === 'bad' ? theme.danger : theme.textSecondary;
@@ -217,26 +272,23 @@ export default function ExerciseScreen() {
                 {formatDate(l.date)}
               </T>
             </Row>
-            <T weight="700">
-              {l.value !== null ? `${String(l.value).replace('.', ',')} ${ex.unit}` : 'Erledigt'} {l.achieved ? '✅' : ''}
-              {'  '}+{logXp(l)} XP
-            </T>
+            <Row style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <Num size={30}>{l.value !== null ? String(l.value).replace('.', ',') : '✓'}</Num>
+              <Num size={18} color="primary">
+                +{logXp(l)} XP
+              </Num>
+            </Row>
             {!!l.note && (
               <T size={14} color="textSecondary">
                 „{l.note}“
               </T>
             )}
-            <T size={13} weight="700" style={{ color }}>
+            <T size={13} weight="600" style={{ color }}>
               {st.text}
             </T>
           </Card>
         );
       })}
-      {best === null && logs.length === 0 && (
-        <T size={13} color="textSecondary" style={{ textAlign: 'center' }}>
-          Noch kein Eintrag – dein erster bringt dir Punkte!
-        </T>
-      )}
     </Screen>
   );
 }

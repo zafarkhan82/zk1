@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { Button, Card, Field, Screen, T } from '@/components/ui';
+import { Button, Card, Field, H, Logo, Screen, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth, type SocialProvider } from '@/lib/auth';
@@ -56,11 +56,11 @@ export default function Login() {
 
   return (
     <Screen bottomBar={false}>
-      <View style={{ alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four }}>
-        <T size={56}>⚽</T>
-        <T size={30} weight="800" style={{ textAlign: 'center' }}>
-          Go4Pro
-        </T>
+      <View style={{ alignItems: 'center', gap: Spacing.three, marginTop: Spacing.five, marginBottom: Spacing.two }}>
+        <Logo size={72} />
+        <H size={60}>
+          Go<H size={60} color="primary">4</H>Pro
+        </H>
         <T color="textSecondary" style={{ textAlign: 'center' }}>
           Dein Weg nach oben: trainieren, Entwicklung festhalten, vom Trainer bestätigen lassen.
         </T>
