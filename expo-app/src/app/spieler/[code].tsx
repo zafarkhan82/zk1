@@ -58,7 +58,6 @@ export default function SpielerScan() {
               team: data.team,
               jersey: data.jersey,
               overall: data.overall,
-              tier: data.tier,
               attributes: data.attributes ?? {},
               go4proId: data.go4pro_id,
             }}

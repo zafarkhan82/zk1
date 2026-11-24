@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { Platform, Share, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { PlayerCard } from '@/components/player-card';
+import { PlayerCard, TierLadder } from '@/components/player-card';
 import { Button, Card, Columns, H, Label, Progress, Row, Screen, StripeHeader, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { playerLink, usePlayerRating } from '@/lib/rating';
@@ -61,7 +61,6 @@ export default function Karte() {
                 team: team?.teamName ?? null,
                 jersey: team?.jerseyNumber ?? null,
                 overall: rating.overall,
-                tier: rating.tier,
                 attributes: rating.attributes,
                 go4proId: rating.go4proId,
               }}
@@ -91,18 +90,7 @@ export default function Karte() {
               <H size={56} color="primary">
                 {rating.overall}
               </H>
-              <Progress value={(rating.overall - 35) / 44} />
-              <Row style={{ justifyContent: 'space-between' }}>
-                <T size={12} color="textSecondary">
-                  35 Start
-                </T>
-                <T size={12} color="textSecondary">
-                  50 Silber · 65 Gold
-                </T>
-                <T size={12} color="textSecondary">
-                  79 Spitze
-                </T>
-              </Row>
+              <TierLadder overall={rating.overall} />
             </Card>
 
             <Card style={{ gap: 14 }}>

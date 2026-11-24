@@ -4,7 +4,28 @@ import { Platform } from 'react-native';
 import { supabase } from './supabase';
 import type { Category } from './types';
 
-export type Tier = 'bronze' | 'silber' | 'gold';
+export type Tier = 'weiss' | 'bronze' | 'silber' | 'gold' | 'platin' | 'diamant';
+
+/** Feste Kartenstufen – gleichlautend mit rating_tier() in Migration 0016 */
+export const TIERS: { id: Tier; label: string; min: number; max: number }[] = [
+  { id: 'weiss', label: 'Weiß', min: 35, max: 44 },
+  { id: 'bronze', label: 'Bronze', min: 45, max: 52 },
+  { id: 'silber', label: 'Silber', min: 53, max: 60 },
+  { id: 'gold', label: 'Gold', min: 61, max: 68 },
+  { id: 'platin', label: 'Schwarz-Platin', min: 69, max: 74 },
+  { id: 'diamant', label: 'Diamond-Blue', min: 75, max: 79 },
+];
+
+export function tierFor(overall: number): (typeof TIERS)[number] {
+  return [...TIERS].reverse().find((t) => overall >= t.min) ?? TIERS[0];
+}
+
+/** Nächste Stufe und wie viele Punkte bis dahin fehlen (null auf der höchsten Stufe) */
+export function nextTier(overall: number) {
+  const i = TIERS.findIndex((t) => t.id === tierFor(overall).id);
+  const next = TIERS[i + 1];
+  return next ? { tier: next, missing: next.min - overall, progress: (overall - TIERS[i].min) / (next.min - TIERS[i].min) } : null;
+}
 
 export interface Rating {
   overall: number;

@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { AdCard, NewsPreview, RankOverviewCard, TeamFeed } from '@/components/home-cards';
 import { Icon } from '@/components/icons';
-import { RatingBadge } from '@/components/rating-badge';
+import { MiniCard, TIER_STYLE } from '@/components/player-card';
 import { Button, Card, Columns, H, Label, Logo, Num, Pill, Progress, Row, Screen, T, useLevelColors } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { DAILY_TIPS, exercisesFor, LEVELS, targetFor } from '@/data/exercises';
@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, groupIndex } from '@/lib/age';
 import { activeDays, bestLevel, challengeProgress, dayKey, levelInfo, streak, totalXp, weekStart, weeklyChallenges } from '@/lib/game';
 import { useHomeAd, useNews, useRankOverview, useTeamFeed } from '@/lib/home';
-import { usePlayerRating } from '@/lib/rating';
+import { nextTier, tierFor, usePlayerRating } from '@/lib/rating';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import type { Level } from '@/lib/types';
@@ -112,25 +112,64 @@ export default function Heute() {
         </Row>
       </Row>
 
-      <View style={{ gap: 8 }}>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <H size={52} style={{ flex: 1 }} numberOfLines={1}>
+      <Card style={{ flexDirection: 'row', gap: 16, alignItems: 'center', padding: 14 }}>
+        {rating ? (
+          <MiniCard
+            onPress={() => router.push('/karte')}
+            data={{
+              nickname: profile.nickname,
+              position: profile.position,
+              club: team?.clubName ?? null,
+              team: team?.teamName ?? null,
+              jersey: team?.jerseyNumber ?? null,
+              overall: rating.overall,
+              attributes: rating.attributes,
+              go4proId: rating.go4proId,
+            }}
+          />
+        ) : (
+          <View style={{ width: 132, aspectRatio: 0.72, borderRadius: 20, backgroundColor: theme.backgroundSelected }} />
+        )}
+        <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
+          <H size={40} numberOfLines={2}>
             Hi, {profile.nickname}
           </H>
-          {rating && <RatingBadge overall={rating.overall} tier={rating.tier} delta={rating.overallWeekAgo != null ? rating.overall - rating.overallWeekAgo : 0} />}
-        </Row>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/profil')} style={{ gap: 6 }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <T size={14} weight="700">
+          {rating && (
+            <View style={{ gap: 4 }}>
+              <Row style={{ gap: 6 }}>
+                <View style={{ borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: TIER_STYLE[tierFor(rating.overall).id].chip }}>
+                  <Text style={{ fontFamily: Font.label, fontSize: 11, letterSpacing: 1, color: TIER_STYLE[tierFor(rating.overall).id].chipText }}>
+                    {tierFor(rating.overall).label.toUpperCase()}
+                  </Text>
+                </View>
+                {rating.overallWeekAgo != null && rating.overall !== rating.overallWeekAgo && (
+                  <T size={12} weight="700" style={{ color: rating.overall > rating.overallWeekAgo ? theme.success : theme.danger }}>
+                    {rating.overall > rating.overallWeekAgo ? '▲' : '▼'} {Math.abs(rating.overall - rating.overallWeekAgo)}
+                  </T>
+                )}
+              </Row>
+              {nextTier(rating.overall) ? (
+                <>
+                  <Progress value={nextTier(rating.overall)!.progress} height={6} color={TIER_STYLE[nextTier(rating.overall)!.tier.id].chip} />
+                  <T size={12} color="textSecondary">
+                    Noch {nextTier(rating.overall)!.missing} bis {nextTier(rating.overall)!.tier.label}
+                  </T>
+                </>
+              ) : (
+                <T size={12} color="textSecondary">
+                  Höchste Stufe erreicht!
+                </T>
+              )}
+            </View>
+          )}
+          <Pressable accessibilityRole="button" onPress={() => router.push('/profil')} style={{ gap: 4 }}>
+            <T size={12} weight="700">
               Level {lvl.level} · {lvl.title}
             </T>
-            <T size={13} color="textSecondary">
-              noch {lvl.needed - lvl.current} XP bis Level {lvl.level + 1}
-            </T>
-          </Row>
-          <Progress value={lvl.progress} height={8} />
-        </Pressable>
-      </View>
+            <Progress value={lvl.progress} height={6} />
+          </Pressable>
+        </View>
+      </Card>
 
       <Columns
         left={

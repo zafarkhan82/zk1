@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
-import { PlayerCard } from '@/components/player-card';
+import { PlayerCard, TierLadder } from '@/components/player-card';
 import { Button, Card, Checkbox, Chip, Columns, H, Row, Screen, SectionTitle, Stat, T, Wrap } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -94,7 +94,6 @@ export default function Ich() {
               team: team?.teamName ?? null,
               jersey: team?.jerseyNumber ?? null,
               overall: rating.overall,
-              tier: rating.tier,
               attributes: rating.attributes,
               go4proId: rating.go4proId,
             }}
@@ -103,6 +102,11 @@ export default function Ich() {
       ) : (
         <Card>
           <T color="textSecondary">Lade deine Karte …</T>
+        </Card>
+      )}
+      {rating && (
+        <Card>
+          <TierLadder overall={rating.overall} />
         </Card>
       )}
       <LinkRow label="Karte, QR-Code & Wertung" hint={`Level ${lvl.level} · ${xp.toLocaleString('de-DE')} XP`} onPress={() => router.push('/karte')} highlight />

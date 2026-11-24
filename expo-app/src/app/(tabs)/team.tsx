@@ -4,10 +4,12 @@ import { Pressable, Text, View } from 'react-native';
 
 import { TeamSchedule } from '@/components/fussballde-panel';
 import { Icon } from '@/components/icons';
+import { TIER_STYLE } from '@/components/player-card';
 import { Button, Card, Field, H, Label, Num, Pill, Row, Screen, StripeHeader, T } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { SCOPES, useRoster } from '@/lib/ranking';
+import { tierFor } from '@/lib/rating';
 import { useStore } from '@/lib/store';
 import { errorText, supabase } from '@/lib/supabase';
 
@@ -180,9 +182,18 @@ export default function Team() {
                 </T>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Num size={24} color={p.rating >= 65 ? 'gold' : p.rating >= 50 ? 'text' : 'bronzeText'}>
-                  {p.rating}
-                </Num>
+                <View
+                  style={{
+                    minWidth: 40,
+                    paddingHorizontal: 6,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    backgroundColor: TIER_STYLE[tierFor(p.rating).id].chip,
+                    borderWidth: 1,
+                    borderColor: TIER_STYLE[tierFor(p.rating).id].edge,
+                  }}>
+                  <Text style={{ fontFamily: Font.number, fontSize: 20, color: TIER_STYLE[tierFor(p.rating).id].chipText }}>{p.rating}</Text>
+                </View>
                 <T size={11} color="textSecondary">
                   {p.points.toLocaleString('de-DE')} Pkt.
                 </T>
