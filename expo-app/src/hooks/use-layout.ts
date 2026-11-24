@@ -15,6 +15,8 @@ export function useLayout() {
     twoColumns: width >= 900,
     /** Spalten für Raster (z. B. Übungen) */
     gridColumns: width >= 1280 ? 3 : width >= 700 ? 2 : 1,
+    /** Seitenabstand des Inhalts (wie in Screen) */
+    side: device === 'phone' ? 20 : 32,
   };
 }
 

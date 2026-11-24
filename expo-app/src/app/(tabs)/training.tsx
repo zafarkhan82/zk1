@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Chip, Grid, H, Screen, StripeHeader, T, useLevelColors } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { CATEGORIES, exercisesFor, targetFor } from '@/data/exercises';
+import { useLayout } from '@/hooks/use-layout';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL } from '@/lib/age';
 import { bestLevel } from '@/lib/game';
@@ -16,6 +17,7 @@ const ORDER: Level[] = ['bronze', 'silber', 'gold'];
 export default function Training() {
   const { state, group, premium } = useStore();
   const theme = useTheme();
+  const { side } = useLayout();
   const levelColors = useLevelColors();
   const [cat, setCat] = useState<Category | 'alle'>('alle');
   const all = exercisesFor(group);
@@ -33,7 +35,7 @@ export default function Training() {
           </T>
         </StripeHeader>
       }>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -side, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: side }}>
         <Chip label="Alle" selected={cat === 'alle'} onPress={() => setCat('alle')} />
         {cats.map((c) => (
           <Chip key={c.id} label={c.label} selected={cat === c.id} onPress={() => setCat(c.id)} />
@@ -63,7 +65,7 @@ export default function Training() {
               alignItems: 'center',
               gap: 14,
               minHeight: 76,
-              height: '100%',
+              flexGrow: 1,
               padding: 14,
               borderRadius: 20,
               backgroundColor: theme.backgroundElement,

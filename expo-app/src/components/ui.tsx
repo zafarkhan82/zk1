@@ -46,9 +46,8 @@ export function Screen({
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { device, sideNav } = useLayout();
+  const { device, sideNav, side } = useLayout();
   const maxWidth = device === 'phone' ? MaxContentWidth : wide ? 1180 : 780;
-  const side = device === 'phone' ? 20 : 32;
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.background }}
@@ -91,7 +90,7 @@ export function Grid({ children, gap = 10 }: { children: ReactNode[]; gap?: numb
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -gap / 2 }}>
       {children.map((c, i) => (
-        <View key={i} style={{ width: `${100 / gridColumns}%`, padding: gap / 2 }}>
+        <View key={i} style={{ width: `${100 / gridColumns}%`, padding: gap / 2, flexDirection: 'column' }}>
           {c}
         </View>
       ))}

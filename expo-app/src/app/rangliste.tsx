@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, View } from 'react-native';
 
 import { RankLine } from '@/components/rank-list';
 import { Button, Card, Chip, EmptyState, H, Label, Num, Row, Screen, StripeHeader, T } from '@/components/ui';
+import { useLayout } from '@/hooks/use-layout';
 import { useTheme } from '@/hooks/use-theme';
 import { SCOPES, useRanking, type RankPeriod, type RankScope } from '@/lib/ranking';
 import { useStore } from '@/lib/store';
@@ -12,6 +13,7 @@ export default function Rangliste() {
   const params = useLocalSearchParams<{ scope?: RankScope }>();
   const { state, teams } = useStore();
   const theme = useTheme();
+  const { side } = useLayout();
   const [scope, setScope] = useState<RankScope>(SCOPES.some((s) => s.id === params.scope) ? params.scope! : 'team');
   const [period, setPeriod] = useState<RankPeriod>('season');
   const { data, loading, error } = useRanking(state.profile?.id, scope, period);
@@ -44,7 +46,7 @@ export default function Rangliste() {
           </T>
         </StripeHeader>
       }>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -side, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: side }}>
         {SCOPES.map((s) => (
           <Chip key={s.id} label={s.label} selected={scope === s.id} onPress={() => setScope(s.id)} />
         ))}
