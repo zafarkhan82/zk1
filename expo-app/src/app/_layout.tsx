@@ -69,7 +69,7 @@ function RootStack() {
   const pathname = usePathname() || '/';
   const { sideNav } = useLayout();
   // Menü auf allen Seiten – außer Anmeldung und Spieler-Anlage (dort gibt es noch nichts zu navigieren)
-  const showNav = !!auth.session && store.ready && store.players.length > 0 && !['/login', '/onboarding'].includes(pathname);
+  const showNav = !!auth.session && store.ready && store.players.length > 0 && !['/login', '/onboarding', '/einladung'].includes(pathname);
   const initialReady = (fontsLoaded || !!fontError) && auth.ready && (!auth.session || store.ready);
   useEffect(() => {
     if (initialReady && !booted) {
@@ -112,6 +112,7 @@ function RootStack() {
       <Stack.Screen name="trainer/team/[id]" options={{ title: 'Team' }} />
       <Stack.Screen name="verein/[id]" options={{ title: 'Verein' }} />
       <Stack.Screen name="karte" options={{ title: 'Spielerkarte', headerTitle: '' }} />
+      <Stack.Screen name="einladung" options={{ title: 'Einladung', headerShown: false }} />
       <Stack.Screen name="spieler/[code]" options={{ title: 'Spieler', headerTitle: '' }} />
     </Stack>
       </View>

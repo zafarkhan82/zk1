@@ -2,7 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { ActiveToggle, AddByEmail, PendingClubCard, StatusTag } from '@/components/org-ui';
+import { InviteBox } from '@/components/invite-form';
+import { ActiveToggle, PendingClubCard, StatusTag } from '@/components/org-ui';
 import { ClubImport } from '@/components/club-import';
 import { StaffelAdmin } from '@/components/staffel-admin';
 import { UnitLogoImage } from '@/components/unit-logo';
@@ -221,14 +222,7 @@ export default function Gebiet() {
                   />
                 </Row>
               ))}
-              <AddByEmail
-                label={`Admin für ${KIND_LABEL[u.kind]} ${u.short_name ?? u.name} ernennen`}
-                onAdd={async (email) => {
-                  const { error: e } = await supabase.rpc('add_org_admin', { p_unit: u.id, p_email: email });
-                  reload();
-                  return e ? errorText(e) : null;
-                }}
-              />
+              <InviteBox kind="org_admin" targetId={u.id} label={`Admin für ${KIND_LABEL[u.kind]} ${u.short_name ?? u.name} einladen`} compact />
             </Card>
             <Card style={{ backgroundColor: theme.primarySoft }}>
               <Label color="primary">Rechte auf dieser Ebene</Label>

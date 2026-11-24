@@ -1,7 +1,7 @@
-// Supabase Edge Function: Vereine (und ihre Jugendteams) aus einem Bild, PDF oder Weblink auslesen.
+// Supabase Edge Function: Vereinsnamen aus einem Bild, PDF oder Weblink auslesen (optional mit eigenem Prompt).
 //
 // Aufruf aus der App (angemeldet, Kreis-Admin oder darüber):
-//   supabase.functions.invoke('extract-clubs', { body: { kreis_id, source: 'image' | 'pdf' | 'url', data?, media_type?, url? } })
+//   supabase.functions.invoke('extract-clubs', { body: { kreis_id, source: 'image' | 'pdf' | 'url', data?, media_type?, url?, instructions? } })
 // Ergebnis: { clubs: [...], notes } – wird NICHT gespeichert. Der Admin prüft die Liste und übernimmt sie
 // anschließend mit der Datenbankfunktion import_clubs.
 // Personen (Spieler*innen, Trainer*innen) werden nie ausgelesen.
@@ -25,19 +25,7 @@ const BLOCKED_HOSTS = ['fussball.de', 'dfbnet.org', 'dfb.de'];
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
 const MAX_BYTES = 20 * 1024 * 1024;
 
-const TeamSchema = z.object({
-  name: z.string(),
-  age_group: z.enum(['A', 'B', 'C', 'D', 'E']).nullable(),
-});
-const ClubSchema = z.object({
-  name: z.string(),
-  city: z.string().nullable(),
-  postal_code: z.string().nullable(),
-  dfb_club_number: z.string().nullable(),
-  website: z.string().nullable(),
-  teams: z.array(TeamSchema),
-});
-const ResultSchema = z.object({ clubs: z.array(ClubSchema), notes: z.string() });
+const ResultSchema = z.object({ clubs: z.array(z.object({ name: z.string() })), notes: z.string() });
 
 // JSON-Schema für output_config (strukturierte Ausgabe)
 const OUTPUT_SCHEMA = {
@@ -51,40 +39,25 @@ const OUTPUT_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['name', 'city', 'postal_code', 'dfb_club_number', 'website', 'teams'],
+        required: ['name'],
         properties: {
-          name: { type: 'string', description: 'Offizieller Vereinsname ohne Mannschaftszusatz (z. B. "TSV Heusenstamm", nicht "TSV Heusenstamm II")' },
-          city: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-          postal_code: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-          dfb_club_number: { anyOf: [{ type: 'string' }, { type: 'null' }], description: 'Vereinsnummer, nur wenn ausdrücklich angegeben' },
-          website: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-          teams: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['name', 'age_group'],
-              properties: {
-                name: { type: 'string', description: 'Mannschaftsname wie in der Quelle, z. B. "TSV Heusenstamm II" oder "JSG Rodgau D2"' },
-                age_group: { anyOf: [{ type: 'string', enum: ['A', 'B', 'C', 'D', 'E'] }, { type: 'null' }] },
-              },
-            },
-          },
+          name: { type: 'string', description: 'Vereinsname ohne Mannschaftszusatz, z. B. "TSV Heusenstamm" statt "TSV Heusenstamm II"' },
         },
       },
     },
   },
 };
 
-const SYSTEM = `Du liest Fußball-Vereine und ihre Jugendmannschaften aus Unterlagen eines Fußballkreises aus (Tabellen, Spielpläne,
+const SYSTEM = `Du liest die Namen von Fußball-Vereinen aus Unterlagen eines Fußballkreises aus (Tabellen, Spielpläne,
 Staffellisten, Vereinsverzeichnisse, Screenshots).
 Regeln:
-- Gib jeden Verein genau einmal an. Mannschaften desselben Vereins (z. B. "SV Dreieich II", "SV Dreieich 2") gehören zum selben Verein.
+- Gib NUR Vereinsnamen aus – keine Mannschaften, keine Altersklassen, keine Orte, keine Ergebnisse.
+- Entferne Mannschaftszusätze am Ende: Zahlen (1, 2, 3 …), römische Ziffern (I, II, III, IV …) und „2. Mannschaft“ o. ä.
+  Beispiel: "TSV Heusenstamm II" → "TSV Heusenstamm", "SV Dreieich 2" → "SV Dreieich". Gründungsjahre im Namen bleiben ("SV 1919 Zellhausen").
+- Jeder Verein genau einmal.
 - Spielgemeinschaften (JSG, SG) sind eigene Einträge mit ihrem vollen Namen.
-- Altersklasse (E, D, C, B, A) nur angeben, wenn sie aus der Quelle hervorgeht (z. B. "D-Junioren", "U13" = D, "U11" = E, "U15" = C, "U17" = B, "U19" = A), sonst null.
-- Erfinde nichts: Ort, Postleitzahl, Vereinsnummer und Webseite nur, wenn sie in der Quelle stehen.
-- Lies niemals Namen von Personen aus (Spieler*innen, Trainer*innen, Schiedsrichter*innen, Ansprechpartner*innen) – auch nicht in den Hinweisen.
-- Ergebnisse, Tore und Tabellenstände werden hier nicht gebraucht.`;
+- Erfinde nichts. Lies niemals Namen von Personen aus – auch nicht in den Hinweisen.
+- Zusätzliche Hinweise des Admins (falls vorhanden) beachtest du, solange sie diesen Regeln nicht widersprechen.`;
 
 function htmlToText(html: string) {
   return html
@@ -174,6 +147,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Das Auslesen ist noch nicht eingerichtet (API-Schlüssel fehlt in den Supabase-Secrets).' }, 503);
     }
 
+    const instructions = String(body.instructions ?? '').trim().slice(0, 2000);
     const blocks = await sourceBlocks(body);
     const client = new Anthropic({ apiKey });
     let response: Anthropic.Beta.Messages.BetaMessage;
@@ -190,7 +164,12 @@ Deno.serve(async (req) => {
             role: 'user',
             content: [
               ...blocks,
-              { type: 'text', text: 'Lies alle Vereine mit ihren Jugendmannschaften aus dieser Quelle aus.' },
+              {
+                type: 'text',
+                text:
+                  'Lies alle Vereinsnamen aus dieser Quelle aus.' +
+                  (instructions ? `\n\nZusätzliche Hinweise des Admins:\n<hinweise>\n${instructions}\n</hinweise>` : ''),
+              },
             ],
           },
         ],
@@ -215,7 +194,13 @@ Deno.serve(async (req) => {
     } catch {
       return json({ error: 'Das Ergebnis war nicht lesbar – bitte noch einmal versuchen.' }, 502);
     }
-    return json(parsed);
+    const strip = (n: string) =>
+      n.trim().replace(/\s+(I{1,3}|IV|V|VI{0,3}|[1-9]|[1-9]\.\s*Mannschaft)$/i, '').replace(/\s+/g, ' ').trim();
+    const seen = new Set<string>();
+    const clubs = parsed.clubs
+      .map((c) => ({ name: strip(c.name) }))
+      .filter((c) => c.name.length >= 3 && !seen.has(c.name.toLowerCase()) && seen.add(c.name.toLowerCase()));
+    return json({ clubs, notes: parsed.notes });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'Unbekannter Fehler' }, 400);
   }

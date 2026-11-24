@@ -1,26 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 
+import { InviteBox } from '@/components/invite-form';
+import { StatusTag } from '@/components/org-ui';
 import { Button, Card, Checkbox, Chip, Field, Label, Row, SectionTitle, T, Wrap } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { errorText, supabase } from '@/lib/supabase';
 
-interface Team {
+type Source = 'image' | 'pdf' | 'url';
+interface Found {
   name: string;
-  age_group: 'A' | 'B' | 'C' | 'D' | 'E' | null;
-}
-interface Club {
-  name: string;
-  city: string | null;
-  postal_code: string | null;
-  dfb_club_number: string | null;
-  website: string | null;
-  teams: Team[];
   selected: boolean;
   exists: boolean;
 }
-type Source = 'image' | 'pdf' | 'url';
+interface KreisClub {
+  id: string;
+  name: string;
+  active: boolean;
+  admins: { name: string; email: string }[];
+  invites: number;
+}
 
 /** Datei im Browser wählen und als Base64 lesen */
 function pickFile(accept: string): Promise<{ data: string; type: string; name: string } | null> {
@@ -48,83 +48,88 @@ function pickFile(accept: string): Promise<{ data: string; type: string; name: s
   });
 }
 
-/** Vereine aus Bild, PDF oder Link auslesen (KI), prüfen und übernehmen */
+async function fnError(error: unknown) {
+  let text = errorText(error);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ctx = (error as any).context;
+    if (ctx?.json) text = (await ctx.json()).error ?? text;
+  } catch {
+    /* Standardmeldung */
+  }
+  return text;
+}
+
+/** Vereinsnamen per KI aus Bild, PDF oder Link auslesen, prüfen, übernehmen – danach je Verein einen Admin einladen */
 export function ClubImport({ kreisId, onDone }: { kreisId: string; onDone?: () => void }) {
   const theme = useTheme();
   const [source, setSource] = useState<Source>('image');
   const [url, setUrl] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [file, setFile] = useState<{ data: string; type: string; name: string } | null>(null);
   const [busy, setBusy] = useState<'read' | 'save' | null>(null);
-  const [clubs, setClubs] = useState<Club[] | null>(null);
+  const [found, setFound] = useState<Found[] | null>(null);
   const [notes, setNotes] = useState('');
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [staffeln, setStaffeln] = useState<{ id: string; name: string; age_group: string; art: string }[]>([]);
-  const [staffel, setStaffel] = useState<string | null>(null);
-  const [ageFilter, setAgeFilter] = useState<string>('D');
+  const [clubs, setClubs] = useState<KreisClub[]>([]);
+  const [inviteFor, setInviteFor] = useState<string | null>(null);
+  const [onlyWithout, setOnlyWithout] = useState(false);
 
-  useEffect(() => {
-    supabase.rpc('kreis_staffeln', { p_kreis: kreisId }).then(({ data }) => setStaffeln((data as typeof staffeln) ?? []));
+  const loadClubs = useCallback(async () => {
+    const { data } = await supabase.rpc('kreis_clubs_admins', { p_kreis: kreisId });
+    setClubs((data as KreisClub[]) ?? []);
   }, [kreisId]);
+  useEffect(() => {
+    loadClubs();
+  }, [loadClubs]);
 
   const read = async () => {
     setBusy('read');
     setMsg(null);
-    setClubs(null);
-    const body =
-      source === 'url'
-        ? { kreis_id: kreisId, source, url }
-        : { kreis_id: kreisId, source, data: file?.data, media_type: file?.type };
+    setFound(null);
+    const base = { kreis_id: kreisId, source, instructions: prompt.trim() || undefined };
+    const body = source === 'url' ? { ...base, url } : { ...base, data: file?.data, media_type: file?.type };
     const { data, error } = await supabase.functions.invoke('extract-clubs', { body });
-    if (error) {
-      // Fehlermeldung der Funktion auslesen
-      let text = errorText(error);
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const ctx = (error as any).context;
-        if (ctx?.json) text = (await ctx.json()).error ?? text;
-      } catch {
-        /* Standardmeldung */
-      }
-      setBusy(null);
-      return setMsg({ text, ok: false });
-    }
-    const { data: existing } = await supabase.rpc('kreis_club_names', { p_kreis: kreisId });
-    const known = new Set(((existing as { name: string }[]) ?? []).map((c) => c.name.toLowerCase()));
+    setBusy(null);
+    if (error) return setMsg({ text: await fnError(error), ok: false });
+    const known = new Set(clubs.map((c) => c.name.toLowerCase()));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const list = ((data as any)?.clubs ?? []) as Omit<Club, 'selected' | 'exists'>[];
-    setClubs(list.map((c) => ({ ...c, teams: c.teams ?? [], selected: true, exists: known.has(c.name.toLowerCase()) })));
+    const list = (((data as any)?.clubs ?? []) as { name: string }[]).map((c) => ({ name: c.name, selected: !known.has(c.name.toLowerCase()), exists: known.has(c.name.toLowerCase()) }));
+    setFound(list);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setNotes((data as any)?.notes ?? '');
-    setBusy(null);
+    if (list.length === 0) setMsg({ text: 'Keine Vereine gefunden. Probier es mit einem schärferen Bild oder einem Hinweis im Prompt.', ok: false });
   };
 
   const save = async () => {
-    if (!clubs) return;
+    if (!found) return;
     setBusy('save');
-    const chosen = clubs.filter((c) => c.selected).map(({ selected: _s, exists: _e, ...c }) => c);
-    const { data, error } = await supabase.rpc('import_clubs', { p_kreis: kreisId, p_clubs: chosen, p_staffel: staffel });
+    const chosen = found.filter((c) => c.selected).map((c) => ({ name: c.name }));
+    const { data, error } = await supabase.rpc('import_clubs', { p_kreis: kreisId, p_clubs: chosen });
     setBusy(null);
     if (error) return setMsg({ text: errorText(error), ok: false });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = data as any;
-    setMsg({ text: `Übernommen: ${r.clubs_new} neue Vereine, ${r.clubs_updated} vorhandene ergänzt, ${r.teams_new} neue Teams.`, ok: true });
-    setClubs(null);
+    setMsg({ text: `${r.clubs_new} neue Vereine angelegt (${r.clubs_total} übernommen). Lade jetzt je Verein einen Admin ein.`, ok: true });
+    setFound(null);
     setFile(null);
     setUrl('');
+    setOnlyWithout(true);
+    await loadClubs();
     onDone?.();
   };
 
-  const update = (i: number, patch: Partial<Club>) => setClubs((cs) => cs!.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   const canRead = source === 'url' ? /^https?:\/\/\S+\.\S+/.test(url.trim()) : !!file;
-  const selected = clubs?.filter((c) => c.selected).length ?? 0;
+  const selected = found?.filter((c) => c.selected).length ?? 0;
+  const shownClubs = clubs.filter((c) => !onlyWithout || c.admins.length === 0);
 
   return (
     <View style={{ gap: 12 }}>
       <SectionTitle>Vereine importieren</SectionTitle>
       <Card style={{ gap: 12 }}>
         <T size={13} color="textSecondary">
-          Lade einen Screenshot (z. B. einer Tabelle oder Staffelübersicht), ein PDF (z. B. Staffeleinteilung) oder einen Link hoch. Die KI
-          liest Vereine und Jugendteams aus – du prüfst die Liste, bevor etwas gespeichert wird. Personen werden nie übernommen.
+          Screenshot, PDF oder Link hochladen – die KI liest nur die Vereinsnamen aus (ohne Mannschaftszusätze wie 2, 3 oder II, jeder
+          Verein einmal). Du prüfst die Liste, bevor etwas gespeichert wird.
         </T>
         <Wrap>
           <Chip label="Bild" selected={source === 'image'} onPress={() => (setSource('image'), setFile(null))} />
@@ -133,30 +138,34 @@ export function ClubImport({ kreisId, onDone }: { kreisId: string; onDone?: () =
         </Wrap>
         {source === 'url' ? (
           <>
-            <Field label="Link (Vereinsseite, PDF des Kreises …)" value={url} onChangeText={setUrl} autoCapitalize="none" keyboardType="url" placeholder="https://…" />
+            <Field label="Link" value={url} onChangeText={setUrl} autoCapitalize="none" keyboardType="url" placeholder="https://…" />
             <T size={12} color="textSecondary">
-              Seiten von fussball.de/DFBnet werden nicht automatisch abgerufen – dafür bitte einen Screenshot oder ein PDF der Seite hochladen.
+              fussball.de/DFBnet-Links ruft Go4Pro nicht automatisch ab – dafür bitte Screenshot oder PDF hochladen.
             </T>
           </>
         ) : Platform.OS === 'web' ? (
-          <Row>
-            <Button
-              title={file ? 'Andere Datei wählen' : source === 'image' ? 'Bild wählen' : 'PDF wählen'}
-              variant="secondary"
-              onPress={async () => setFile(await pickFile(source === 'image' ? 'image/png,image/jpeg,image/webp' : 'application/pdf'))}
-              style={{ flex: 1 }}
-            />
-          </Row>
+          <Button
+            title={file ? `Datei: ${file.name} (ändern)` : source === 'image' ? 'Bild wählen' : 'PDF wählen'}
+            variant="secondary"
+            onPress={async () => setFile(await pickFile(source === 'image' ? 'image/png,image/jpeg,image/webp' : 'application/pdf'))}
+          />
         ) : (
           <T size={13} color="textSecondary">
             Datei-Upload ist derzeit in der Web-Version möglich.
           </T>
         )}
-        {!!file && (
-          <T size={13} weight="600">
-            {file.name}
-          </T>
-        )}
+        <View style={{ gap: 6 }}>
+          <Label>Eigener Prompt (optional)</Label>
+          <TextInput
+            multiline
+            value={prompt}
+            onChangeText={setPrompt}
+            maxLength={2000}
+            placeholder="z. B. „Nur Vereine aus der Tabelle, nicht aus der Spielplanliste“ oder „Abkürzung JFV als Jugendförderverein ausschreiben“"
+            placeholderTextColor={theme.textSecondary}
+            style={{ minHeight: 80, borderRadius: 14, borderWidth: 1, borderColor: theme.border, padding: 12, color: theme.text, fontFamily: Font.body, fontSize: 14, textAlignVertical: 'top' }}
+          />
+        </View>
         <Button title={busy === 'read' ? 'Lese aus … (bis zu 1 Minute)' : 'Vereine auslesen'} disabled={!canRead || !!busy} onPress={read} />
       </Card>
 
@@ -166,14 +175,12 @@ export function ClubImport({ kreisId, onDone }: { kreisId: string; onDone?: () =
         </Card>
       )}
 
-      {clubs && (
-        <Card style={{ gap: 12, borderColor: theme.primary }}>
+      {found && found.length > 0 && (
+        <Card style={{ gap: 8, borderColor: theme.primary }}>
           <Row style={{ justifyContent: 'space-between' }}>
-            <Label color="primary">Gefunden: {clubs.length} Vereine</Label>
-            <Pressable onPress={() => setClubs(clubs.map((c) => ({ ...c, selected: !clubs.every((x) => x.selected) })))}>
-              <Text style={{ fontFamily: Font.bold, fontSize: 13, color: theme.primary }}>
-                {clubs.every((c) => c.selected) ? 'Keine' : 'Alle'} auswählen
-              </Text>
+            <Label color="primary">Gefunden: {found.length} Vereine</Label>
+            <Pressable onPress={() => setFound(found.map((c) => ({ ...c, selected: !found.every((x) => x.selected) })))}>
+              <Text style={{ fontFamily: Font.bold, fontSize: 13, color: theme.primary }}>{found.every((c) => c.selected) ? 'Keine' : 'Alle'} auswählen</Text>
             </Pressable>
           </Row>
           {!!notes && (
@@ -181,84 +188,54 @@ export function ClubImport({ kreisId, onDone }: { kreisId: string; onDone?: () =
               Hinweis: {notes}
             </T>
           )}
-          {clubs.map((c, i) => (
-            <View key={i} style={{ gap: 6, paddingTop: 10, borderTopWidth: i ? 1 : 0, borderTopColor: theme.border }}>
-              <Row style={{ gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Checkbox checked={c.selected} onChange={(v) => update(i, { selected: v })} label="" />
-                </View>
-                <Text style={{ fontFamily: Font.label, fontSize: 10, letterSpacing: 1, color: c.exists ? theme.textSecondary : theme.success }}>
-                  {c.exists ? 'SCHON DA' : 'NEU'}
-                </Text>
-              </Row>
+          {found.map((c, i) => (
+            <Row key={i} style={{ gap: 10, paddingVertical: 4, borderTopWidth: i ? 1 : 0, borderTopColor: theme.border }}>
+              <Checkbox checked={c.selected} onChange={(v) => setFound(found.map((x, j) => (j === i ? { ...x, selected: v } : x)))} label="" />
               <TextInput
                 value={c.name}
-                onChangeText={(v) => update(i, { name: v })}
-                style={{ fontFamily: Font.bold, fontSize: 15, color: theme.text, borderBottomWidth: 1, borderBottomColor: theme.border, paddingVertical: 4 }}
+                onChangeText={(v) => setFound(found.map((x, j) => (j === i ? { ...x, name: v } : x)))}
                 accessibilityLabel="Vereinsname"
+                style={{ flex: 1, minWidth: 0, fontFamily: Font.bold, fontSize: 15, color: theme.text, paddingVertical: 6 }}
               />
-              <Row style={{ gap: 8 }}>
-                <TextInput
-                  value={c.postal_code ?? ''}
-                  onChangeText={(v) => update(i, { postal_code: v || null })}
-                  placeholder="PLZ"
-                  placeholderTextColor={theme.textSecondary}
-                  style={{ width: 56, fontFamily: Font.medium, fontSize: 13, color: theme.text, borderBottomWidth: 1, borderBottomColor: theme.border }}
-                />
-                <TextInput
-                  value={c.city ?? ''}
-                  onChangeText={(v) => update(i, { city: v || null })}
-                  placeholder="Ort"
-                  placeholderTextColor={theme.textSecondary}
-                  style={{ flex: 1, minWidth: 0, fontFamily: Font.medium, fontSize: 13, color: theme.text, borderBottomWidth: 1, borderBottomColor: theme.border }}
-                />
-                <TextInput
-                  value={c.dfb_club_number ?? ''}
-                  onChangeText={(v) => update(i, { dfb_club_number: v || null })}
-                  placeholder="Vereinsnr."
-                  placeholderTextColor={theme.textSecondary}
-                  style={{ width: 84, fontFamily: Font.medium, fontSize: 13, color: theme.text, borderBottomWidth: 1, borderBottomColor: theme.border }}
-                />
-              </Row>
-              {c.teams.length > 0 && (
-                <T size={12} color="textSecondary">
-                  Teams: {c.teams.map((t) => `${t.name}${t.age_group ? ` (${t.age_group})` : ''}`).join(' · ')}
-                </T>
-              )}
-            </View>
+              <StatusTag text={c.exists ? 'schon da' : 'neu'} tone={c.exists ? 'off' : 'ok'} />
+            </Row>
           ))}
-
-          <View style={{ gap: 8 }}>
-            <Label>Teams einer Staffel zuordnen (optional)</Label>
-            <Wrap>
-              {['E', 'D', 'C', 'B', 'A']
-                .filter((a) => staffeln.some((s) => s.age_group === a))
-                .map((a) => (
-                  <Chip key={a} label={`${a}-Jugend`} selected={ageFilter === a} onPress={() => setAgeFilter(a)} />
-                ))}
-            </Wrap>
-            <Wrap>
-              <Chip label="Keine Staffel" selected={staffel === null} onPress={() => setStaffel(null)} />
-              {staffeln
-                .filter((s) => s.age_group === ageFilter)
-                .map((s) => (
-                  <Chip key={s.id} label={`${s.name}`} selected={staffel === s.id} onPress={() => setStaffel(s.id)} />
-                ))}
-            </Wrap>
-            <T size={12} color="textSecondary">
-              Mit Staffel: Jeder ausgewählte Verein bekommt ein Team in dieser Staffel (Altersklasse und Spielklasse werden gesetzt). Ohne
-              Staffel: Teams nur, wenn die Altersklasse in der Quelle stand.
-            </T>
-          </View>
-
-          <Button
-            title={busy === 'save' ? 'Übernehme …' : `${selected} Vereine übernehmen`}
-            disabled={!selected || !!busy}
-            onPress={save}
-          />
-          <Button title="Verwerfen" variant="secondary" onPress={() => setClubs(null)} />
+          <Button title={busy === 'save' ? 'Übernehme …' : `${selected} Vereine übernehmen`} disabled={!selected || !!busy} onPress={save} />
+          <Button title="Verwerfen" variant="secondary" onPress={() => setFound(null)} />
         </Card>
       )}
+
+      <SectionTitle right={<T color="textSecondary">{clubs.length}</T>}>Vereine & Admins</SectionTitle>
+      <Wrap>
+        <Chip label="Alle" selected={!onlyWithout} onPress={() => setOnlyWithout(false)} />
+        <Chip label={`Ohne Admin (${clubs.filter((c) => c.admins.length === 0).length})`} selected={onlyWithout} onPress={() => setOnlyWithout(true)} />
+      </Wrap>
+      <Card style={{ gap: 0, paddingVertical: 6 }}>
+        {shownClubs.length === 0 && <T color="textSecondary">Keine Vereine in dieser Ansicht.</T>}
+        {shownClubs.map((c, i) => (
+          <View key={c.id} style={{ paddingVertical: 10, gap: 8, borderTopWidth: i ? 1 : 0, borderTopColor: theme.border }}>
+            <Row style={{ justifyContent: 'space-between', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <T weight="700">{c.name}</T>
+                <T size={12} color="textSecondary">
+                  {c.admins.length > 0
+                    ? `Admin: ${c.admins.map((a) => a.name).join(', ')}`
+                    : c.invites > 0
+                      ? `${c.invites} Einladung offen – wartet auf Bestätigung`
+                      : 'Noch kein Admin'}
+                </T>
+              </View>
+              <Button
+                title={inviteFor === c.id ? 'Schließen' : 'Admin einladen'}
+                variant={c.admins.length ? 'secondary' : 'primary'}
+                onPress={() => setInviteFor(inviteFor === c.id ? null : c.id)}
+                style={{ minHeight: 36, paddingHorizontal: 12 }}
+              />
+            </Row>
+            {inviteFor === c.id && <InviteBox kind="club_admin" targetId={c.id} label={`Einladung für ${c.name} senden`} compact />}
+          </View>
+        ))}
+      </Card>
     </View>
   );
 }

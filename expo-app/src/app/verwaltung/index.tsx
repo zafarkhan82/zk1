@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { AddByEmail, PendingClubCard, StatusTag } from '@/components/org-ui';
+import { InviteBox } from '@/components/invite-form';
+import { PendingClubCard, StatusTag } from '@/components/org-ui';
 import { UnitLogoImage } from '@/components/unit-logo';
 import { Button, Card, Columns, Field, H, Label, Row, Screen, SectionTitle, StripeHeader, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -160,14 +161,7 @@ export default function Verwaltung() {
                     )}
                   </Row>
                 ))}
-                <AddByEmail
-                  label="Weitere*n Super-Admin ernennen"
-                  onAdd={async (email) => {
-                    const { error } = await supabase.rpc('set_super_admin', { p_email: email, p_on: true });
-                    load();
-                    return error ? errorText(error) : null;
-                  }}
-                />
+                <InviteBox kind="super_admin" targetId={null} label="Super-Admin einladen" compact />
               </Card>
             </>
           ) : (
