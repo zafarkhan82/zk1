@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { ActiveToggle, AddByEmail, PendingClubCard, StatusTag } from '@/components/org-ui';
@@ -19,6 +19,10 @@ export default function Gebiet() {
   const [msg, setMsg] = useState('');
   const [name, setName] = useState('');
   const [short, setShort] = useState('');
+  const [regional, setRegional] = useState<string | null>(null);
+  useEffect(() => {
+    if (id) supabase.rpc('unit_regional', { p_unit: id }).then(({ data }) => setRegional((data as string) ?? null));
+  }, [id]);
 
   const call = async (fn: string, args: Record<string, unknown>, ok: string) => {
     const { error: e } = await supabase.rpc(fn, args);
@@ -46,7 +50,7 @@ export default function Gebiet() {
       header={
         <StripeHeader height={170}>
           <T size={13} color="textSecondary">
-            {detail.path.map((p) => p.name).join(' › ') || 'Deutschland'}
+            {[regional, ...detail.path.map((p) => p.name)].filter(Boolean).join(' › ') || 'Deutschland'}
           </T>
           <H size={40}>{u.short_name ? `${u.short_name} · ${u.name}` : u.name}</H>
           <Row style={{ gap: 8 }}>
