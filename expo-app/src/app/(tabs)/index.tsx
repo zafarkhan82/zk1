@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { AdCard, NewsPreview, RankOverviewCard, TeamFeed } from '@/components/home-cards';
 import { Icon } from '@/components/icons';
 import { Button, Card, H, Label, Logo, Num, Pill, Progress, Row, Screen, T, useLevelColors } from '@/components/ui';
 import { Font } from '@/constants/theme';
@@ -9,13 +10,18 @@ import { DAILY_TIPS, exercisesFor, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, groupIndex } from '@/lib/age';
 import { activeDays, bestLevel, challengeProgress, dayKey, levelInfo, streak, totalXp, weekStart, weeklyChallenges } from '@/lib/game';
-import { useRanking } from '@/lib/ranking';
+import { useHomeAd, useNews, useRankOverview, useTeamFeed } from '@/lib/home';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import type { Level } from '@/lib/types';
 
 const NEXT: Record<string, Level> = { none: 'bronze', bronze: 'silber', silber: 'gold', gold: 'gold' };
 const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const WELLBEING = [
+  { emoji: '💧', text: 'Genug trinken – vor, während und nach dem Training.' },
+  { emoji: '😴', text: '9 bis 10 Stunden Schlaf machen dich schneller und konzentrierter.' },
+  { emoji: '🤝', text: 'Fair Play: Gib nach dem Spiel allen die Hand – auch wenn ihr verloren habt.' },
+];
 
 interface NextMatch {
   kickoff: string;
@@ -34,7 +40,11 @@ export default function Heute() {
   const s = streak(state);
   const [match, setMatch] = useState<NextMatch | null>(null);
   const team = teams.find((t) => t.status === 'approved');
-  const { data: rank } = useRanking(team ? profile.id : undefined, 'team', 'season');
+  const ranks = useRankOverview(profile.id, state.logs.length);
+  const { items: news } = useNews(profile.id, 5);
+  const feed = useTeamFeed(team?.teamId);
+  const ad = useHomeAd(profile.id);
+  const freshNews = news.filter((n) => Date.now() - new Date(n.publishedAt).getTime() < 3 * 86400000).length;
 
   useEffect(() => {
     if (!team) return setMatch(null);
@@ -75,13 +85,44 @@ export default function Heute() {
     <Screen>
       <Row style={{ justifyContent: 'space-between' }}>
         <Logo size={40} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.backgroundElement }}>
-          <Icon.Flame size={16} color={theme.primary} />
-          <Text style={{ color: theme.text, fontFamily: Font.black, fontSize: 14 }}>{s}</Text>
-        </View>
+        <Row style={{ gap: 8 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Serie: ${s} Tage, zum Verlauf`}
+            onPress={() => router.push('/verlauf')}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 40, borderRadius: 999, backgroundColor: theme.backgroundElement }}>
+            <Icon.Flame size={16} color={theme.primary} />
+            <Text style={{ color: theme.text, fontFamily: Font.black, fontSize: 14 }}>{s}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={freshNews ? `${freshNews} neue Nachrichten` : 'Nachrichten'}
+            onPress={() => router.push('/nachrichten')}
+            style={{ width: 40, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.backgroundElement }}>
+            <Icon.Bell size={20} color={theme.text} />
+            {freshNews > 0 && (
+              <View style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: theme.primaryText, fontFamily: Font.black, fontSize: 10 }}>{freshNews}</Text>
+              </View>
+            )}
+          </Pressable>
+        </Row>
       </Row>
 
-      <H size={52}>Hi, {profile.nickname}</H>
+      <View style={{ gap: 8 }}>
+        <H size={52}>Hi, {profile.nickname}</H>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/profil')} style={{ gap: 6 }}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <T size={14} weight="700">
+              Level {lvl.level} · {lvl.title}
+            </T>
+            <T size={13} color="textSecondary">
+              noch {lvl.needed - lvl.current} XP bis Level {lvl.level + 1}
+            </T>
+          </Row>
+          <Progress value={lvl.progress} height={8} />
+        </Pressable>
+      </View>
 
       {toConfirm.length > 0 && (
         <Card style={{ borderColor: theme.primary }} onPress={() => router.push('/tagebuch')}>
@@ -112,8 +153,9 @@ export default function Heute() {
       </Card>
 
       <Card style={{ borderColor: theme.primary, padding: 0, overflow: 'hidden', gap: 0 }}>
-        <View style={{ height: 84, justifyContent: 'flex-end', paddingHorizontal: 18, paddingBottom: 10, backgroundColor: theme.primarySoft }}>
+        <View style={{ paddingHorizontal: 18, paddingVertical: 10, backgroundColor: theme.primarySoft, flexDirection: 'row', justifyContent: 'space-between' }}>
           <Label color="primary">{doneToday ? 'Weiter geht’s' : 'Deine Mission heute'}</Label>
+          <Label color="primary">{doneToday ? 'heute ✓' : `+${LEVELS.find((l) => l.id === missionLevel)!.xp} XP`}</Label>
         </View>
         <View style={{ padding: 18, gap: 10 }}>
           <H size={38}>{mission.title}</H>
@@ -127,33 +169,22 @@ export default function Heute() {
         </View>
       </Card>
 
-      <Card>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <H size={22}>
-            Level {lvl.level} · {lvl.title}
-          </H>
-          <Num size={22}>
-            {xp.toLocaleString('de-DE')} <Text style={{ fontSize: 14, color: theme.textSecondary }}>XP</Text>
-          </Num>
-        </Row>
-        <Progress value={lvl.progress} />
-        <T size={13} color="textSecondary">
-          Noch {lvl.needed - lvl.current} XP bis Level {lvl.level + 1} · {AGE_GROUP_LABEL[group]}
-        </T>
-      </Card>
-
-      {team && rank?.me && (
-        <Card onPress={() => router.push('/rangliste')} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <Icon.Trophy color={theme.gold} />
+      {team ? (
+        <RankOverviewCard rows={ranks} />
+      ) : (
+        <Card onPress={() => router.push('/team')} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, borderColor: theme.primary }}>
+          <Icon.Shield color={theme.primary} />
           <View style={{ flex: 1 }}>
-            <Label>Rangliste Team</Label>
-            <T weight="700">
-              Platz {rank.me.rank} von {rank.total} · {rank.me.points.toLocaleString('de-DE')} Punkte
+            <T weight="700">Tritt deinem Team bei</T>
+            <T size={13} color="textSecondary">
+              Mit dem Code deines Trainers siehst du Kader, Spielplan und Ranglisten.
             </T>
           </View>
           <Icon.Chevron color={theme.textSecondary} />
         </Card>
       )}
+
+      <NewsPreview items={news} />
 
       {match && team && (
         <Card onPress={() => router.push('/team')}>
@@ -186,6 +217,10 @@ export default function Heute() {
         </Card>
       )}
 
+      {ad && <AdCard ad={ad} />}
+
+      <TeamFeed items={feed} />
+
       <Pressable onPress={() => router.push('/challenges')} accessibilityRole="button">
         <Row style={{ justifyContent: 'space-between', marginTop: 6 }}>
           <H size={26}>Challenges der Woche</H>
@@ -213,6 +248,21 @@ export default function Heute() {
       <Card style={{ backgroundColor: theme.primarySoft }}>
         <Label color="primary">Tipp des Tages</Label>
         <T size={15}>{tip.text}</T>
+      </Card>
+
+      <Card style={{ gap: 10 }}>
+        <Label>Gut für dich</Label>
+        {WELLBEING.map((w) => (
+          <Row key={w.text} style={{ gap: 12 }}>
+            <Text style={{ fontSize: 20 }}>{w.emoji}</Text>
+            <T size={14} style={{ flex: 1 }}>
+              {w.text}
+            </T>
+          </Row>
+        ))}
+        <T size={12} color="textSecondary">
+          Pausen gehören zum Training. Wenn dir etwas weh tut: Sag es deinen Eltern oder deinem Trainer.
+        </T>
       </Card>
     </Screen>
   );

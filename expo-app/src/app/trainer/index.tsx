@@ -149,7 +149,7 @@ function ClubCard({ clubId, rows, onChanged }: { clubId: string; rows: StaffRow[
 }
 
 export default function TrainerHub() {
-  const { staff, refreshStaff } = useStore();
+  const { staff, refreshStaff, isStaff } = useStore();
   const theme = useTheme();
   const levelColors = useLevelColors();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -230,6 +230,8 @@ export default function TrainerHub() {
           <T size={14}>{msg}</T>
         </Card>
       )}
+
+      {isStaff && <Button title="Nachricht an dein Team schreiben" variant="secondary" onPress={() => router.push('/nachricht-neu')} />}
 
       <SectionTitle>Freigaben ({reviews.length})</SectionTitle>
       {reviews.length === 0 ? (

@@ -26,6 +26,12 @@ export const Icon = {
       <Path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />
     </Svg>
   ),
+  Bell: ({ size = 24, color, strokeWidth = 2 }: P) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z" />
+      <Path d="M10 21h4" />
+    </Svg>
+  ),
   User: ({ size = 24, color, strokeWidth = 2 }: P) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round">
       <Circle cx={12} cy={8} r={4} />

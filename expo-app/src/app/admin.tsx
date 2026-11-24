@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
@@ -119,6 +120,11 @@ export default function Admin() {
           <T size={14}>{msg}</T>
         </Card>
       )}
+
+      <Row>
+        <Button title="Werbung" variant="secondary" onPress={() => router.push('/werbung')} style={{ flex: 1 }} />
+        <Button title="Nachricht an alle" variant="secondary" onPress={() => router.push('/nachricht-neu')} style={{ flex: 1 }} />
+      </Row>
 
       <SectionTitle right={<Button title="↻" variant="secondary" onPress={load} style={{ minHeight: 34, paddingHorizontal: 14 }} />}>
         Offene Zahlungen ({payments.length})
