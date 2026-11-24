@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { ActiveToggle, AddByEmail, PendingClubCard, StatusTag } from '@/components/org-ui';
+import { ClubImport } from '@/components/club-import';
 import { StaffelAdmin } from '@/components/staffel-admin';
 import { Button, Card, Columns, Field, H, Label, Row, Screen, SectionTitle, StripeHeader, T, confirmAction } from '@/components/ui';
 import { Font } from '@/constants/theme';
@@ -139,6 +140,7 @@ export default function Gebiet() {
               </>
             )}
 
+            {u.kind === 'kreis' && <ClubImport kreisId={u.id} onDone={reload} />}
             {u.kind === 'kreis' && <StaffelAdmin kreisId={u.id} />}
 
             {detail.clubs && (
