@@ -40,6 +40,7 @@ export interface RosterRow {
   entries: number;
   lastActivity: string | null;
   isMine: boolean;
+  rating: number;
 }
 
 /** Rangliste eines Spielers für einen Bereich (Team, Spielklasse, Region, Deutschland). */
@@ -119,6 +120,7 @@ export function useRoster(teamId: string | undefined) {
           entries: r.entries,
           lastActivity: r.last_activity,
           isMine: r.is_mine,
+          rating: r.rating ?? 35,
         })),
       );
     });

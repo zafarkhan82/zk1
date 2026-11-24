@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { Font, MaxContentWidth, Spacing, type ThemeColor } from '@/constants/theme';
+import { BOTTOM_BAR_SPACE, useLayout } from '@/hooks/use-layout';
 import { useTheme } from '@/hooks/use-theme';
 
 type Weight = '400' | '500' | '600' | '700' | '800';
@@ -30,32 +31,71 @@ const INTER: Record<Weight, string> = {
 
 export function Screen({
   children,
-  bottomBar = true,
   topInset = true,
   header,
+  wide = false,
 }: {
   children: ReactNode;
+  /** Veraltet: das Menü ist jetzt auf allen Seiten sichtbar */
   bottomBar?: boolean;
   topInset?: boolean;
   /** Vollbreiter Kopfbereich oberhalb des Inhalts (z. B. StripeHeader) */
   header?: ReactNode;
+  /** Breiter Inhalt für zweispaltige Seiten auf iPad/PC */
+  wide?: boolean;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { device, sideNav } = useLayout();
+  const maxWidth = device === 'phone' ? MaxContentWidth : wide ? 1180 : 780;
+  const side = device === 'phone' ? 20 : 32;
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.background }}
       contentContainerStyle={{
-        paddingTop: header ? 0 : (topInset ? insets.top : 0) + Spacing.three,
-        paddingBottom: insets.bottom + (bottomBar ? 110 : Spacing.five),
+        paddingTop: header ? 0 : (topInset ? insets.top : 0) + (device === 'phone' ? Spacing.three : Spacing.five),
+        paddingBottom: insets.bottom + (sideNav ? Spacing.six : BOTTOM_BAR_SPACE),
         alignItems: 'center',
       }}
       keyboardShouldPersistTaps="handled">
       {header}
-      <View style={{ width: '100%', maxWidth: MaxContentWidth, gap: Spacing.three, paddingHorizontal: 20, paddingTop: header ? Spacing.three : 0 }}>
+      <View style={{ width: '100%', maxWidth, gap: Spacing.three, paddingHorizontal: side, paddingTop: header ? Spacing.three : 0 }}>
         {children}
       </View>
     </ScrollView>
+  );
+}
+
+/** Zwei Spalten ab iPad quer / PC, sonst untereinander */
+export function Columns({ left, right }: { left: ReactNode; right: ReactNode }) {
+  const { twoColumns } = useLayout();
+  if (!twoColumns)
+    return (
+      <>
+        {left}
+        {right}
+      </>
+    );
+  return (
+    <View style={{ flexDirection: 'row', gap: 24, alignItems: 'flex-start' }}>
+      <View style={{ flex: 1.15, minWidth: 0, gap: Spacing.three }}>{left}</View>
+      <View style={{ flex: 1, minWidth: 0, gap: Spacing.three }}>{right}</View>
+    </View>
+  );
+}
+
+/** Raster: 1 Spalte (Handy), 2 (iPad), 3 (großer Bildschirm) */
+export function Grid({ children, gap = 10 }: { children: ReactNode[]; gap?: number }) {
+  const { gridColumns } = useLayout();
+  if (gridColumns === 1) return <View style={{ gap }}>{children}</View>;
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -gap / 2 }}>
+      {children.map((c, i) => (
+        <View key={i} style={{ width: `${100 / gridColumns}%`, padding: gap / 2 }}>
+          {c}
+        </View>
+      ))}
+    </View>
   );
 }
 

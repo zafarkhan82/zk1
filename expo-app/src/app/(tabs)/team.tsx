@@ -146,7 +146,7 @@ export default function Team() {
           <Row style={{ justifyContent: 'space-between' }}>
             <Label>Kader · {roster.length} Spieler*innen</Label>
             <T size={12} color="textSecondary">
-              Punkte Saison
+              Rating · Punkte
             </T>
           </Row>
           {roster.map((p, i) => (
@@ -179,7 +179,14 @@ export default function Team() {
                   {p.position ?? 'Position offen'} · {p.entries} Übungen
                 </T>
               </View>
-              <Num size={22}>{p.points.toLocaleString('de-DE')}</Num>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Num size={24} color={p.rating >= 65 ? 'gold' : p.rating >= 50 ? 'text' : 'bronzeText'}>
+                  {p.rating}
+                </Num>
+                <T size={11} color="textSecondary">
+                  {p.points.toLocaleString('de-DE')} Pkt.
+                </T>
+              </View>
             </Row>
           ))}
         </Card>

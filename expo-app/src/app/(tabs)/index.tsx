@@ -4,13 +4,15 @@ import { Pressable, Text, View } from 'react-native';
 
 import { AdCard, NewsPreview, RankOverviewCard, TeamFeed } from '@/components/home-cards';
 import { Icon } from '@/components/icons';
-import { Button, Card, H, Label, Logo, Num, Pill, Progress, Row, Screen, T, useLevelColors } from '@/components/ui';
+import { RatingBadge } from '@/components/rating-badge';
+import { Button, Card, Columns, H, Label, Logo, Num, Pill, Progress, Row, Screen, T, useLevelColors } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { DAILY_TIPS, exercisesFor, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, groupIndex } from '@/lib/age';
 import { activeDays, bestLevel, challengeProgress, dayKey, levelInfo, streak, totalXp, weekStart, weeklyChallenges } from '@/lib/game';
 import { useHomeAd, useNews, useRankOverview, useTeamFeed } from '@/lib/home';
+import { usePlayerRating } from '@/lib/rating';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import type { Level } from '@/lib/types';
@@ -44,6 +46,7 @@ export default function Heute() {
   const { items: news } = useNews(profile.id, 5);
   const feed = useTeamFeed(team?.teamId);
   const ad = useHomeAd(profile.id);
+  const rating = usePlayerRating(profile.id, state.logs.length);
   const freshNews = news.filter((n) => Date.now() - new Date(n.publishedAt).getTime() < 3 * 86400000).length;
 
   useEffect(() => {
@@ -82,7 +85,7 @@ export default function Heute() {
   const tip = tips[Number(todayKey.replace(/-/g, '')) % tips.length];
 
   return (
-    <Screen>
+    <Screen wide>
       <Row style={{ justifyContent: 'space-between' }}>
         <Logo size={40} />
         <Row style={{ gap: 8 }}>
@@ -110,7 +113,12 @@ export default function Heute() {
       </Row>
 
       <View style={{ gap: 8 }}>
-        <H size={52}>Hi, {profile.nickname}</H>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <H size={52} style={{ flex: 1 }} numberOfLines={1}>
+            Hi, {profile.nickname}
+          </H>
+          {rating && <RatingBadge overall={rating.overall} tier={rating.tier} delta={rating.overallWeekAgo != null ? rating.overall - rating.overallWeekAgo : 0} />}
+        </Row>
         <Pressable accessibilityRole="button" onPress={() => router.push('/profil')} style={{ gap: 6 }}>
           <Row style={{ justifyContent: 'space-between' }}>
             <T size={14} weight="700">
@@ -124,6 +132,9 @@ export default function Heute() {
         </Pressable>
       </View>
 
+      <Columns
+        left={
+          <>
       {toConfirm.length > 0 && (
         <Card style={{ borderColor: theme.primary }} onPress={() => router.push('/tagebuch')}>
           <Label color="primary">Vom Trainer eingetragen</Label>
@@ -184,6 +195,10 @@ export default function Heute() {
         </Card>
       )}
 
+          </>
+        }
+        right={
+          <>
       <NewsPreview items={news} />
 
       {match && team && (
@@ -264,6 +279,9 @@ export default function Heute() {
           Pausen gehören zum Training. Wenn dir etwas weh tut: Sag es deinen Eltern oder deinem Trainer.
         </T>
       </Card>
+          </>
+        }
+      />
     </Screen>
   );
 }

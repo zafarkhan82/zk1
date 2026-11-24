@@ -1,30 +1,17 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
-import { Button, Card, Checkbox, Chip, H, Label, Num, Row, Screen, SectionTitle, Stat, T, Wrap } from '@/components/ui';
+import { PlayerCard } from '@/components/player-card';
+import { Button, Card, Checkbox, Chip, Columns, H, Row, Screen, SectionTitle, Stat, T, Wrap } from '@/components/ui';
 import { Font } from '@/constants/theme';
-import { CATEGORIES } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
-import { AGE_GROUP_LABEL, uClass } from '@/lib/age';
 import { useAuth } from '@/lib/auth';
-import { badges, confirmedXp, levelInfo, overall, skillScores, totalXp } from '@/lib/game';
+import { badges, confirmedXp, levelInfo, totalXp } from '@/lib/game';
+import { usePlayerRating } from '@/lib/rating';
 import { useStore } from '@/lib/store';
 import { errorText } from '@/lib/supabase';
-import type { Category } from '@/lib/types';
-
-const SHORT: Record<Category, string> = {
-  ballkontrolle: 'BAL',
-  dribbling: 'DRI',
-  passen: 'PAS',
-  schiessen: 'SCH',
-  koordination: 'KOO',
-  athletik: 'ATH',
-  kopf: 'KOP',
-  torwart: 'TOR',
-};
-const POS_SHORT: Record<string, string> = { Tor: 'TW', Abwehr: 'AB', Mittelfeld: 'MF', Sturm: 'ST', 'Noch offen': '—' };
 
 export default function Ich() {
   const { session, signOut } = useAuth();
@@ -32,8 +19,7 @@ export default function Ich() {
   const theme = useTheme();
   const [error, setError] = useState('');
   const profile = state.profile!;
-  const scores = skillScores(state, group);
-  const isGk = profile.position === 'Tor';
+  const rating = usePlayerRating(profile.id, state.logs.length);
   const xp = totalXp(state);
   const lvl = levelInfo(xp);
   const list = badges(state, group);
@@ -41,12 +27,6 @@ export default function Ich() {
   const confirmed = state.logs.filter((l) => l.status === 'confirmed').length;
   const golds = state.logs.filter((l) => l.level === 'gold' && l.achieved).length;
   const team = teams.find((t) => t.status === 'approved');
-  const attrs = CATEGORIES.filter((c) => (isGk ? c.id !== 'kopf' : c.id !== 'torwart')).slice(0, 6);
-
-  const cardBg =
-    Platform.OS === 'web'
-      ? ({ backgroundImage: `linear-gradient(160deg, #103A46 0%, ${theme.backgroundElement} 70%)` } as unknown as ViewStyle)
-      : { backgroundColor: theme.backgroundElement };
 
   const toggleConsent = async (v: boolean) => {
     setError('');
@@ -82,7 +62,7 @@ export default function Ich() {
   );
 
   return (
-    <Screen>
+    <Screen wide>
       {players.length > 1 && (
         <Wrap>
           {players.map((p) => (
@@ -91,42 +71,41 @@ export default function Ich() {
         </Wrap>
       )}
 
-      <H size={44}>Deine Karte</H>
+      <Columns
+        left={
+          <>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <H size={44}>Deine Karte</H>
+        {rating && rating.overallWeekAgo != null && rating.overall !== rating.overallWeekAgo && (
+          <T weight="700" style={{ color: rating.overall > rating.overallWeekAgo ? theme.success : theme.danger }}>
+            {rating.overall > rating.overallWeekAgo ? '▲' : '▼'} {Math.abs(rating.overall - rating.overallWeekAgo)} diese Woche
+          </T>
+        )}
+      </Row>
 
-      <View style={[{ borderRadius: 28, padding: 22, gap: 14, borderWidth: 1.5, borderColor: theme.primary }, cardBg]}>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View>
-            <Num size={72} color="primary" style={{ lineHeight: 70 }}>
-              {overall(scores, isGk)}
-            </Num>
-            <Label color="text">{POS_SHORT[profile.position] ?? '—'}</Label>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            {team?.jerseyNumber != null && <Num size={40}>#{team.jerseyNumber}</Num>}
-            <T size={13} color="textSecondary">
-              {team ? `${team.clubName} · ` : ''}
-              {AGE_GROUP_LABEL[group]} (U{uClass(profile.birthYear)})
-            </T>
-          </View>
-        </Row>
-        <Row style={{ alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <H size={40} numberOfLines={1} style={{ flex: 1 }}>
-            {profile.nickname}
-          </H>
-          {premium && <Label color="primary">Premium</Label>}
-        </Row>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 }}>
-          {attrs.map((c) => (
-            <View key={c.id} style={{ width: '33.33%', flexDirection: 'row', alignItems: 'baseline', gap: 6 }} accessibilityLabel={`${c.label} ${scores[c.id]}`}>
-              <Num size={26}>{scores[c.id]}</Num>
-              <Label>{SHORT[c.id]}</Label>
-            </View>
-          ))}
-        </View>
-        <T size={13} color="textSecondary">
-          Level {lvl.level} · {lvl.title} · {xp.toLocaleString('de-DE')} XP
-        </T>
-      </View>
+      {rating ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Karte und QR-Code öffnen" onPress={() => router.push('/karte')}>
+          <PlayerCard
+            showQr
+            data={{
+              nickname: profile.nickname,
+              position: profile.position,
+              club: team?.clubName ?? null,
+              team: team?.teamName ?? null,
+              jersey: team?.jerseyNumber ?? null,
+              overall: rating.overall,
+              tier: rating.tier,
+              attributes: rating.attributes,
+              go4proId: rating.go4proId,
+            }}
+          />
+        </Pressable>
+      ) : (
+        <Card>
+          <T color="textSecondary">Lade deine Karte …</T>
+        </Card>
+      )}
+      <LinkRow label="Karte, QR-Code & Wertung" hint={`Level ${lvl.level} · ${xp.toLocaleString('de-DE')} XP`} onPress={() => router.push('/karte')} highlight />
 
       <Row>
         <Stat label="Gold" value={String(golds)} />
@@ -140,6 +119,10 @@ export default function Ich() {
       <LinkRow label="Challenges" onPress={() => router.push('/challenges')} />
       <LinkRow label={premium ? 'Premium aktiv' : 'Premium für Eltern'} hint={premium ? 'alle Funktionen' : '20 € / Jahr'} highlight={!premium} onPress={() => router.push('/premium')} />
 
+          </>
+        }
+        right={
+          <>
       <SectionTitle right={<T color="textSecondary">{earned}/{list.length}</T>}>Abzeichen</SectionTitle>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {list.map((b) => (
@@ -192,6 +175,9 @@ export default function Ich() {
         </T>
         <Button title="Abmelden" variant="danger" onPress={() => signOut()} />
       </Card>
+          </>
+        }
+      />
     </Screen>
   );
 }

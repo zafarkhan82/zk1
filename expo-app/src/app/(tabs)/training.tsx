@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Chip, H, Screen, StripeHeader, T, useLevelColors } from '@/components/ui';
+import { Chip, Grid, H, Screen, StripeHeader, T, useLevelColors } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { CATEGORIES, exercisesFor, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
@@ -24,6 +24,7 @@ export default function Training() {
 
   return (
     <Screen
+      wide
       header={
         <StripeHeader height={150}>
           <H size={52}>Training</H>
@@ -32,13 +33,14 @@ export default function Training() {
           </T>
         </StripeHeader>
       }>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         <Chip label="Alle" selected={cat === 'alle'} onPress={() => setCat('alle')} />
         {cats.map((c) => (
           <Chip key={c.id} label={c.label} selected={cat === c.id} onPress={() => setCat(c.id)} />
         ))}
       </ScrollView>
 
+      <Grid>
       {list.map((e, i) => {
         const best = bestLevel(state.logs, e.id);
         const reached = best ? ORDER.indexOf(best) : -1;
@@ -61,6 +63,7 @@ export default function Training() {
               alignItems: 'center',
               gap: 14,
               minHeight: 76,
+              height: '100%',
               padding: 14,
               borderRadius: 20,
               backgroundColor: theme.backgroundElement,
@@ -83,6 +86,7 @@ export default function Training() {
           </Pressable>
         );
       })}
+      </Grid>
     </Screen>
   );
 }
