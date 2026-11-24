@@ -42,7 +42,7 @@ export default function TabLayout() {
       </View>
     );
   }
-  if (players.length === 0) return <Redirect href={isAdmin ? '/verwaltung' : hasStaffRequests ? '/trainer' : '/onboarding'} />;
+  if (players.length === 0) return <Redirect href={hasStaffRequests && !isAdmin ? '/trainer' : '/onboarding'} />;
 
   // Das sichtbare Menü kommt aus dem Root-Layout (AppNav) und ist auf allen Seiten gleich.
   // Die Tab-Leiste hier registriert nur die Tab-Routen und bleibt unsichtbar.
