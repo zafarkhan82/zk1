@@ -78,6 +78,10 @@ export interface TeamInfo {
   teamId: string;
   teamName: string;
   clubName: string;
+  /** Spielklasse, z. B. "D-Junioren Kreisliga …" */
+  league: string | null;
+  ageGroup: AgeGroup | null;
+  association: string | null;
   status: 'pending' | 'approved' | 'rejected';
   jerseyNumber: number | null;
 }

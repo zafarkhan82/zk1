@@ -134,6 +134,8 @@ export default function Ich() {
         <Stat label="Abzeichen" value={`${earned}/${list.length}`} />
       </Row>
 
+      <LinkRow label="Verlauf" hint={`${state.logs.length + state.diary.length} Einträge`} onPress={() => router.push('/verlauf')} />
+      <LinkRow label="Rangliste" hint="Team bis Deutschland" onPress={() => router.push('/rangliste')} />
       <LinkRow label="Tagebuch" hint={`${state.diary.length} Einträge`} onPress={() => router.push('/tagebuch')} />
       <LinkRow label="Challenges" onPress={() => router.push('/challenges')} />
       <LinkRow label={premium ? 'Premium aktiv' : 'Premium für Eltern'} hint={premium ? 'alle Funktionen' : '20 € / Jahr'} highlight={!premium} onPress={() => router.push('/premium')} />

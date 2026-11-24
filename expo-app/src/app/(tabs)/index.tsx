@@ -9,6 +9,7 @@ import { DAILY_TIPS, exercisesFor, LEVELS, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, groupIndex } from '@/lib/age';
 import { activeDays, bestLevel, challengeProgress, dayKey, levelInfo, streak, totalXp, weekStart, weeklyChallenges } from '@/lib/game';
+import { useRanking } from '@/lib/ranking';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import type { Level } from '@/lib/types';
@@ -33,6 +34,7 @@ export default function Heute() {
   const s = streak(state);
   const [match, setMatch] = useState<NextMatch | null>(null);
   const team = teams.find((t) => t.status === 'approved');
+  const { data: rank } = useRanking(team ? profile.id : undefined, 'team', 'season');
 
   useEffect(() => {
     if (!team) return setMatch(null);
@@ -88,7 +90,7 @@ export default function Heute() {
         </Card>
       )}
 
-      <Card style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14 }}>
+      <Card style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14 }} onPress={() => router.push('/verlauf')}>
         {week.map((d) => (
           <View key={d.label} style={{ alignItems: 'center', gap: 6 }}>
             <Text style={{ color: d.today ? theme.text : theme.textSecondary, fontFamily: Font.semibold, fontSize: 11 }}>{d.label}</Text>
@@ -139,6 +141,19 @@ export default function Heute() {
           Noch {lvl.needed - lvl.current} XP bis Level {lvl.level + 1} · {AGE_GROUP_LABEL[group]}
         </T>
       </Card>
+
+      {team && rank?.me && (
+        <Card onPress={() => router.push('/rangliste')} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <Icon.Trophy color={theme.gold} />
+          <View style={{ flex: 1 }}>
+            <Label>Rangliste Team</Label>
+            <T weight="700">
+              Platz {rank.me.rank} von {rank.total} · {rank.me.points.toLocaleString('de-DE')} Punkte
+            </T>
+          </View>
+          <Icon.Chevron color={theme.textSecondary} />
+        </Card>
+      )}
 
       {match && team && (
         <Card onPress={() => router.push('/team')}>

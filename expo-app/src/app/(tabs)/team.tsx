@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { TeamSchedule } from '@/components/fussballde-panel';
+import { Icon } from '@/components/icons';
 import { Button, Card, Field, H, Label, Num, Pill, Row, Screen, StripeHeader, T } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { SCOPES, useRoster } from '@/lib/ranking';
 import { useStore } from '@/lib/store';
 import { errorText, supabase } from '@/lib/supabase';
 
@@ -38,6 +40,7 @@ export default function Team() {
   const [history, setHistory] = useState<History[]>([]);
   const team = teams.find((t) => t.status === 'approved');
   const pending = teams.filter((t) => t.status === 'pending');
+  const { rows: roster, error: rosterError } = useRoster(team?.teamId);
 
   useEffect(() => {
     if (!state.profile) return;
@@ -105,19 +108,89 @@ export default function Team() {
       {team && <TeamSchedule teamId={team.teamId} />}
 
       {team && (
-        <Card>
-          <Label>Team</Label>
+        <Card style={{ gap: 12 }}>
           <Row style={{ justifyContent: 'space-between' }}>
-            <View>
-              <Num size={32}>{team.teamName}</Num>
-              <T size={13} color="textSecondary">
-                {team.clubName}
-              </T>
-            </View>
-            <Button title="Challenges" variant="secondary" onPress={() => router.push('/challenges')} />
+            <Label>Ranglisten</Label>
+            <T size={12} color="textSecondary">
+              {team.league ?? 'ohne Spielklasse'}
+            </T>
           </Row>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {SCOPES.map((s) => (
+              <Pressable
+                key={s.id}
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/rangliste', params: { scope: s.id } })}
+                style={({ pressed }) => ({
+                  flexGrow: 1,
+                  flexBasis: '45%',
+                  minHeight: 54,
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: theme.backgroundSelected,
+                  opacity: pressed ? 0.85 : 1,
+                })}>
+                <Text style={{ color: theme.text, fontFamily: Font.bold, fontSize: 15 }}>{s.label}</Text>
+                <Icon.Chevron color={theme.primary} />
+              </Pressable>
+            ))}
+          </View>
         </Card>
       )}
+
+      {team && roster.length > 0 && (
+        <Card style={{ gap: 6 }}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Label>Kader · {roster.length} Spieler*innen</Label>
+            <T size={12} color="textSecondary">
+              Punkte Saison
+            </T>
+          </Row>
+          {roster.map((p, i) => (
+            <Row
+              key={p.playerId}
+              style={{
+                gap: 12,
+                paddingVertical: 8,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: theme.border,
+              }}>
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: p.isMine ? theme.primary : theme.backgroundSelected,
+                }}>
+                <Text style={{ fontFamily: Font.number, fontSize: 15, color: p.isMine ? theme.primaryText : theme.text }}>
+                  {p.jerseyNumber ?? '–'}
+                </Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <T weight="700" numberOfLines={1} color={p.isMine ? 'primary' : 'text'}>
+                  {p.nickname}
+                </T>
+                <T size={12} color="textSecondary">
+                  {p.position ?? 'Position offen'} · {p.entries} Übungen
+                </T>
+              </View>
+              <Num size={22}>{p.points.toLocaleString('de-DE')}</Num>
+            </Row>
+          ))}
+        </Card>
+      )}
+      {!!rosterError && (
+        <T size={13} style={{ color: theme.danger }}>
+          {rosterError}
+        </T>
+      )}
+
+      {team && <Button title="Team-Challenges" variant="secondary" onPress={() => router.push('/challenges')} />}
 
       {history.length > 0 && (
         <Card>

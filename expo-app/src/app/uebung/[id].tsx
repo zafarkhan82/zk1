@@ -60,6 +60,12 @@ export default function ExerciseScreen() {
   const value: number | null = isCheck ? null : isTime ? (seconds.trim() === '' ? NaN : parsedSeconds) : count;
   const canSave = isCheck || (value !== null && !Number.isNaN(value) && value >= 0 && (!isTime || value > 0));
   const cat = CATEGORIES.find((c) => c.id === ex.category);
+  const progress = logs
+    .filter((l) => l.value !== null && l.status !== 'rejected')
+    .slice(0, 10)
+    .reverse();
+  const maxVal = Math.max(...progress.map((l) => l.value as number), 0);
+  const minVal = Math.min(...progress.map((l) => l.value as number), Infinity);
   const record = (() => {
     const vals = logs.filter((l) => l.level === level && l.value !== null).map((l) => l.value as number);
     if (!vals.length) return null;
@@ -259,6 +265,42 @@ export default function ExerciseScreen() {
           </T>
         ))}
       </Card>
+
+      {progress.length >= 2 && (
+        <Card>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Label>Dein Fortschritt</Label>
+            <T size={12} color="textSecondary">
+              letzte {progress.length} Ergebnisse
+            </T>
+          </Row>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 110, gap: 6, marginTop: 4 }}>
+            {progress.map((l, i) => {
+              const v = l.value as number;
+              const h = ex.lowerIsBetter ? (minVal / Math.max(v, 0.1)) * 80 : (v / Math.max(maxVal, 1)) * 80;
+              const last = i === progress.length - 1;
+              return (
+                <View key={l.id} style={{ flex: 1, alignItems: 'center', gap: 4 }} accessibilityLabel={`${v} ${ex.unit}`}>
+                  <T size={10} color={last ? 'primary' : 'textSecondary'}>
+                    {String(v).replace('.', ',')}
+                  </T>
+                  <View
+                    style={{
+                      width: '100%',
+                      height: Math.max(6, h),
+                      borderRadius: 6,
+                      backgroundColor: last ? theme.primary : l.achieved ? theme.primarySoft : theme.backgroundSelected,
+                    }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+          <T size={12} color="textSecondary">
+            {ex.lowerIsBetter ? 'Kürzer ist besser.' : 'Höher ist besser.'} Helle Balken: Ziel geschafft.
+          </T>
+        </Card>
+      )}
 
       {logs.length > 0 && <SectionTitle>Deine Einträge</SectionTitle>}
       {logs.map((l) => {

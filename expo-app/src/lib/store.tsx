@@ -187,6 +187,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           clubName: r.club_name,
           status: r.status,
           jerseyNumber: r.jersey_number,
+          league: r.league ?? null,
+          ageGroup: r.age_group ?? null,
+          association: r.association ?? null,
         })),
       );
       setClaimed(((c.data ?? []) as { week: string; challenge_id: string }[]).map((r) => `${r.week}:${r.challenge_id}`));
