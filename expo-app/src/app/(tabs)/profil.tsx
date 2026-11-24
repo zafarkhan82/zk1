@@ -9,6 +9,7 @@ import { Font } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { badges, confirmedXp, levelInfo, totalXp } from '@/lib/game';
+import { useAdminScope } from '@/lib/org';
 import { usePlayerRating } from '@/lib/rating';
 import { useStore } from '@/lib/store';
 import { errorText } from '@/lib/supabase';
@@ -20,6 +21,7 @@ export default function Ich() {
   const [error, setError] = useState('');
   const profile = state.profile!;
   const rating = usePlayerRating(profile.id, state.logs.length);
+  const { scope, hasAny } = useAdminScope();
   const xp = totalXp(state);
   const lvl = levelInfo(xp);
   const list = badges(state, group);
@@ -172,7 +174,15 @@ export default function Ich() {
       </Card>
       <LinkRow label="Weiteres Kind anlegen" onPress={() => router.push('/onboarding')} />
       <LinkRow label="Trainer-Bereich" hint={isStaff ? 'Freigaben & Teams' : undefined} onPress={() => router.push('/trainer')} />
-      {isAdmin && <LinkRow label="Admin-Bereich" onPress={() => router.push('/admin')} />}
+      {hasAny && (
+        <LinkRow
+          label="Verwaltung"
+          hint={scope?.pending ? `${scope.pending} offene Anfragen` : scope?.super ? 'Super-Admin' : 'Verband & Kreis'}
+          onPress={() => router.push('/verwaltung')}
+          highlight={!!scope?.pending}
+        />
+      )}
+      {isAdmin && <LinkRow label="Admin-Bereich" hint="Zahlungen, Lizenzen, Werbung" onPress={() => router.push('/admin')} />}
       <Card>
         <T size={13} color="textSecondary">
           Angemeldet als {session?.user.email}. Einträge werden nie gelöscht. Auf Wunsch anonymisieren wir ein Profil vollständig (DSGVO).

@@ -6,6 +6,7 @@ import { Button, Card, Checkbox, Chip, EmptyState, Field, Pill, Row, Screen, Sec
 import { getExercise, LEVELS } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate } from '@/lib/game';
+import { useOrgUnits } from '@/lib/org';
 import { useStore } from '@/lib/store';
 import { errorText, supabase } from '@/lib/supabase';
 import type { Level, StaffRow } from '@/lib/types';
@@ -163,7 +164,10 @@ export default function TrainerHub() {
   const [license, setLicense] = useState('');
   const [isNlz, setIsNlz] = useState(false);
   const [showNew, setShowNew] = useState(false);
-  const [club, setClub] = useState({ name: '', city: '', postal: '', association: '', dfb: '' });
+  const [club, setClub] = useState({ name: '', city: '', postal: '', verband: '', kreis: '', dfb: '' });
+  const orgUnits = useOrgUnits();
+  const verbaende = orgUnits.filter((o) => o.kind === 'verband').sort((a, b) => a.name.localeCompare(b.name));
+  const kreise = orgUnits.filter((o) => o.kind === 'kreis' && o.parent_id === club.verband).sort((a, b) => a.name.localeCompare(b.name));
 
   const loadReviews = useCallback(async () => {
     const { data } = await supabase.rpc('trainer_pending_reviews');
@@ -211,11 +215,11 @@ export default function TrainerHub() {
       p_name: club.name,
       p_city: club.city,
       p_postal: club.postal,
-      p_association: club.association,
+      p_kreis: club.kreis,
       p_dfb_number: club.dfb,
     });
     if (error) return setMsg(errorText(error));
-    setMsg('✅ Verein vorgeschlagen – Go4Pro prüft ihn kurz und schaltet dich als Vereins-Admin frei.');
+    setMsg('✅ Verein angemeldet – der Kreis prüft die Anfrage und schaltet dich als Vereins-Admin frei.');
     setShowNew(false);
     refreshStaff();
   };
@@ -308,9 +312,37 @@ export default function TrainerHub() {
             <Field label="Vereinsname" value={club.name} onChangeText={(v) => setClub({ ...club, name: v })} />
             <Field label="Ort" value={club.city} onChangeText={(v) => setClub({ ...club, city: v })} />
             <Field label="PLZ" keyboardType="number-pad" value={club.postal} onChangeText={(v) => setClub({ ...club, postal: v })} />
-            <Field label="Landesverband (z. B. WFV, BFV)" value={club.association} onChangeText={(v) => setClub({ ...club, association: v })} />
+            <T size={13} weight="700">
+              Verband
+            </T>
+            <Wrap>
+              {verbaende.map((v) => (
+                <Chip key={v.id} label={v.short_name ?? v.name} selected={club.verband === v.id} onPress={() => setClub({ ...club, verband: v.id, kreis: '' })} />
+              ))}
+            </Wrap>
+            {!!club.verband && (
+              <>
+                <T size={13} weight="700">
+                  Kreis
+                </T>
+                {kreise.length === 0 ? (
+                  <T size={13} color="textSecondary">
+                    Für diesen Verband sind noch keine Kreise angelegt. Bitte wende dich an deinen Verband.
+                  </T>
+                ) : (
+                  <Wrap>
+                    {kreise.map((k) => (
+                      <Chip key={k.id} label={k.name} selected={club.kreis === k.id} onPress={() => setClub({ ...club, kreis: k.id })} />
+                    ))}
+                  </Wrap>
+                )}
+              </>
+            )}
             <Field label="DFB-Vereinsnummer (optional)" value={club.dfb} onChangeText={(v) => setClub({ ...club, dfb: v })} />
-            <Button title="Verein vorschlagen" disabled={club.name.trim().length < 3} onPress={proposeClub} />
+            <Button title="Verein anmelden" disabled={club.name.trim().length < 3 || !club.kreis} onPress={proposeClub} />
+            <T size={12} color="textSecondary">
+              Die Anfrage geht an die Admins deines Kreises. Nach der Freigabe bist du Vereins-Admin.
+            </T>
           </View>
         )}
       </Card>

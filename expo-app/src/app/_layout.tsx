@@ -105,6 +105,8 @@ function RootStack() {
       <Stack.Screen name="nachrichten" options={{ title: 'Nachrichten', headerTitle: '' }} />
       <Stack.Screen name="nachricht-neu" options={{ title: 'Nachricht schreiben' }} />
       <Stack.Screen name="werbung" options={{ title: 'Werbung' }} />
+      <Stack.Screen name="verwaltung/index" options={{ title: 'Verwaltung', headerTitle: '' }} />
+      <Stack.Screen name="verwaltung/[id]" options={{ title: 'Gebiet', headerTitle: '' }} />
       <Stack.Screen name="admin" options={{ title: 'Admin' }} />
       <Stack.Screen name="trainer/index" options={{ title: 'Trainer-Bereich' }} />
       <Stack.Screen name="trainer/team/[id]" options={{ title: 'Team' }} />

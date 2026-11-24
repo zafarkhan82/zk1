@@ -6,6 +6,7 @@ import { Button, Card, Checkbox, Chip, Field, Screen, T, Wrap } from '@/componen
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, ageGroupFor, allowedBirthYears, uClass } from '@/lib/age';
+import { useAdminScope } from '@/lib/org';
 import { useStore } from '@/lib/store';
 import { errorText } from '@/lib/supabase';
 import type { Position } from '@/lib/types';
@@ -15,6 +16,7 @@ const POSITIONS: Position[] = ['Tor', 'Abwehr', 'Mittelfeld', 'Sturm', 'Noch off
 export default function CreatePlayer() {
   const { createPlayer, players } = useStore();
   const theme = useTheme();
+  const { hasAny } = useAdminScope();
   const [forSelf, setForSelf] = useState(false);
   const [nickname, setNickname] = useState('');
   const [birthYear, setBirthYear] = useState<number | null>(null);
@@ -46,6 +48,14 @@ export default function CreatePlayer() {
 
   return (
     <Screen bottomBar={false} topInset={false}>
+      {hasAny && (
+        <Card onPress={() => router.push('/verwaltung')} style={{ borderColor: theme.primary }}>
+          <T weight="700">Zur Verwaltung</T>
+          <T size={13} color="textSecondary">
+            Du verwaltest ein Bundesland, einen Verband oder einen Kreis. Ein Kind musst du dafür nicht anlegen.
+          </T>
+        </Card>
+      )}
       {players.length === 0 && (
         <View style={{ gap: Spacing.one }}>
           <T size={24} weight="800">
