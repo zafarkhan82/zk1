@@ -83,3 +83,34 @@ export function useOrgUnits() {
   }, []);
   return units;
 }
+
+// ───────────── Verbandslogos ─────────────
+
+export interface UnitLogo {
+  logo: string | null;
+  regional: string | null;
+  regional_logo: string | null;
+}
+
+let logoCache: Record<string, UnitLogo> | null = null;
+let logoPromise: Promise<Record<string, UnitLogo>> | null = null;
+
+/** Logos aller Ebenen (einmal geladen, dann aus dem Zwischenspeicher) */
+export function useUnitLogos() {
+  const [logos, setLogos] = useState<Record<string, UnitLogo>>(logoCache ?? {});
+  useEffect(() => {
+    if (logoCache) return;
+    logoPromise ??= Promise.resolve(supabase.rpc('unit_logos')).then(({ data }) => (logoCache = (data as Record<string, UnitLogo>) ?? {}));
+    logoPromise.then(setLogos);
+  }, []);
+  return logos;
+}
+
+/** Logo-Adresse: im Browser vom eigenen Server laden (auch bei lokalen Tests) */
+export function logoSrc(url: string | null | undefined) {
+  if (!url) return null;
+  if (typeof window !== 'undefined' && window.location?.hostname && window.location.hostname !== 'zafarkhan82.github.io') {
+    return url.replace('https://zafarkhan82.github.io', window.location.origin);
+  }
+  return url;
+}

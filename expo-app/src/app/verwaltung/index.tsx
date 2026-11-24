@@ -3,15 +3,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { AddByEmail, PendingClubCard, StatusTag } from '@/components/org-ui';
+import { UnitLogoImage } from '@/components/unit-logo';
 import { Button, Card, Columns, Field, H, Label, Row, Screen, SectionTitle, StripeHeader, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import { KIND_LABEL, useAdminScope, type PendingClub } from '@/lib/org';
+import { KIND_LABEL, useAdminScope, useUnitLogos, type PendingClub } from '@/lib/org';
 import { errorText, supabase } from '@/lib/supabase';
 
 /** Verwaltung: Super-Admins, Bundesländer, eigene Bereiche und offene Vereinsanfragen */
 export default function Verwaltung() {
   const theme = useTheme();
   const { scope, reload } = useAdminScope();
+  const logos = useUnitLogos();
   const [pending, setPending] = useState<PendingClub[]>([]);
   const [supers, setSupers] = useState<{ id: string; email: string; name: string; me: boolean }[]>([]);
   const [newBl, setNewBl] = useState('');
@@ -79,12 +81,17 @@ export default function Verwaltung() {
                   <Label>{KIND_LABEL[u.kind]}</Label>
                   <StatusTag text={u.active ? 'aktiv' : 'deaktiviert'} tone={u.active ? 'ok' : 'off'} />
                 </Row>
-                <T weight="700">{u.name}</T>
-                {!!u.parent && (
-                  <T size={13} color="textSecondary">
-                    {u.parent}
-                  </T>
-                )}
+                <Row style={{ gap: 12 }}>
+                  {!!logos[u.id]?.logo && <UnitLogoImage url={logos[u.id]?.logo} size={40} label={u.name} />}
+                  <View style={{ flex: 1 }}>
+                    <T weight="700">{u.name}</T>
+                    {!!u.parent && (
+                      <T size={13} color="textSecondary">
+                        {u.parent}
+                      </T>
+                    )}
+                  </View>
+                </Row>
               </Card>
             ))}
           </>

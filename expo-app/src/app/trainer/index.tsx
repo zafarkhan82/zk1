@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
+import { UnitLogoImage } from '@/components/unit-logo';
 import { Button, Card, Checkbox, Chip, EmptyState, Field, Pill, Row, Screen, SectionTitle, T, useLevelColors, Wrap } from '@/components/ui';
 import { getExercise, LEVELS } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate } from '@/lib/game';
-import { useOrgUnits } from '@/lib/org';
+import { useOrgUnits, useUnitLogos } from '@/lib/org';
 import { useStore } from '@/lib/store';
 import { errorText, supabase } from '@/lib/supabase';
 import type { Level, StaffRow } from '@/lib/types';
@@ -166,6 +167,7 @@ export default function TrainerHub() {
   const [showNew, setShowNew] = useState(false);
   const [club, setClub] = useState({ name: '', city: '', postal: '', verband: '', kreis: '', dfb: '' });
   const orgUnits = useOrgUnits();
+  const logos = useUnitLogos();
   const verbaende = orgUnits.filter((o) => o.kind === 'verband').sort((a, b) => a.name.localeCompare(b.name));
   const kreise = orgUnits.filter((o) => o.kind === 'kreis' && o.parent_id === club.verband).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -317,7 +319,27 @@ export default function TrainerHub() {
             </T>
             <Wrap>
               {verbaende.map((v) => (
-                <Chip key={v.id} label={v.short_name ?? v.name} selected={club.verband === v.id} onPress={() => setClub({ ...club, verband: v.id, kreis: '' })} />
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={v.name}
+                  accessibilityState={{ selected: club.verband === v.id }}
+                  onPress={() => setClub({ ...club, verband: v.id, kreis: '' })}
+                  style={{
+                    width: 76,
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: 6,
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: club.verband === v.id ? theme.primary : 'transparent',
+                    backgroundColor: club.verband === v.id ? theme.primarySoft : 'transparent',
+                  }}>
+                  <UnitLogoImage url={logos[v.id]?.logo} size={44} />
+                  <T size={11} weight="700" style={{ textAlign: 'center' }}>
+                    {v.short_name ?? v.name}
+                  </T>
+                </Pressable>
               ))}
             </Wrap>
             {!!club.verband && (

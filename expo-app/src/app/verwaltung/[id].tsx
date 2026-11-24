@@ -5,10 +5,11 @@ import { Text, View } from 'react-native';
 import { ActiveToggle, AddByEmail, PendingClubCard, StatusTag } from '@/components/org-ui';
 import { ClubImport } from '@/components/club-import';
 import { StaffelAdmin } from '@/components/staffel-admin';
+import { UnitLogoImage } from '@/components/unit-logo';
 import { Button, Card, Columns, Field, H, Label, Row, Screen, SectionTitle, StripeHeader, T, confirmAction } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CHILD_KIND, KIND_LABEL, useUnitDetail } from '@/lib/org';
+import { CHILD_KIND, KIND_LABEL, useUnitDetail, useUnitLogos } from '@/lib/org';
 import { errorText, supabase } from '@/lib/supabase';
 
 /** Eine Ebene (Bundesland, Verband oder Kreis) verwalten */
@@ -20,6 +21,7 @@ export default function Gebiet() {
   const [name, setName] = useState('');
   const [short, setShort] = useState('');
   const [regional, setRegional] = useState<string | null>(null);
+  const logos = useUnitLogos();
   useEffect(() => {
     if (id) supabase.rpc('unit_regional', { p_unit: id }).then(({ data }) => setRegional((data as string) ?? null));
   }, [id]);
@@ -49,10 +51,21 @@ export default function Gebiet() {
       topInset={false}
       header={
         <StripeHeader height={170}>
-          <T size={13} color="textSecondary">
-            {[regional, ...detail.path.map((p) => p.name)].filter(Boolean).join(' › ') || 'Deutschland'}
-          </T>
-          <H size={40}>{u.short_name ? `${u.short_name} · ${u.name}` : u.name}</H>
+          <Row style={{ gap: 8 }}>
+            {!!logos[u.id]?.regional_logo && <UnitLogoImage url={logos[u.id]?.regional_logo} size={22} label={logos[u.id]?.regional ?? ''} />}
+            <T size={13} color="textSecondary" style={{ flex: 1 }}>
+              {[regional, ...detail.path.map((p) => p.name)].filter(Boolean).join(' › ') || 'Deutschland'}
+            </T>
+          </Row>
+          <Row style={{ gap: 12, alignItems: 'center' }}>
+            {!!logos[u.id]?.logo && <UnitLogoImage url={logos[u.id]?.logo} size={56} label={u.name} />}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              {!!u.short_name && <H size={40}>{u.short_name}</H>}
+              <H size={u.short_name ? 20 : 34} numberOfLines={2}>
+                {u.name}
+              </H>
+            </View>
+          </Row>
           <Row style={{ gap: 8 }}>
             <StatusTag text={KIND_LABEL[u.kind]} tone="off" />
             <StatusTag text={u.active && u.chain_active ? 'aktiv' : 'deaktiviert'} tone={u.active && u.chain_active ? 'ok' : 'off'} />
@@ -108,6 +121,7 @@ export default function Gebiet() {
                   {detail.children.length === 0 && <T color="textSecondary">Noch keine angelegt.</T>}
                   {detail.children.map((c, i) => (
                     <Row key={c.id} style={{ justifyContent: 'space-between', gap: 10, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: theme.border }}>
+                      {c.kind === 'verband' && <UnitLogoImage url={logos[c.id]?.logo} size={40} label={c.name} />}
                       <View style={{ flex: 1 }}>
                         <Text
                           onPress={() => router.push({ pathname: '/verwaltung/[id]', params: { id: c.id } })}
