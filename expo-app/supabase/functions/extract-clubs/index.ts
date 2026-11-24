@@ -6,7 +6,7 @@
 // anschließend mit der Datenbankfunktion import_clubs.
 // Personen (Spieler*innen, Trainer*innen) werden nie ausgelesen.
 //
-// Benötigtes Secret: ANTHROPIC_API_KEY (Supabase → Edge Functions → Secrets)
+// Benötigtes Secret: ANTHROPIC_API_KEY oder AnthropicAPI (Supabase → Edge Functions → Secrets)
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { z } from 'npm:zod@3';
@@ -168,12 +168,14 @@ Deno.serve(async (req) => {
     const { data: allowed, error: permError } = await userClient.rpc('is_unit_admin', { p_unit: body.kreis_id });
     if (permError || !allowed) return json({ error: 'Nur Admins des Kreises (oder darüber).' }, 403);
 
-    if (!Deno.env.get('ANTHROPIC_API_KEY')) {
-      return json({ error: 'Das Auslesen ist noch nicht eingerichtet (ANTHROPIC_API_KEY fehlt in den Supabase-Secrets).' }, 503);
+    // Name des Secrets: ANTHROPIC_API_KEY (Standard) oder AnthropicAPI
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY') ?? Deno.env.get('AnthropicAPI');
+    if (!apiKey) {
+      return json({ error: 'Das Auslesen ist noch nicht eingerichtet (API-Schlüssel fehlt in den Supabase-Secrets).' }, 503);
     }
 
     const blocks = await sourceBlocks(body);
-    const client = new Anthropic();
+    const client = new Anthropic({ apiKey });
     let response: Anthropic.Beta.Messages.BetaMessage;
     try {
       response = await client.beta.messages.create({
@@ -194,6 +196,9 @@ Deno.serve(async (req) => {
         ],
       });
     } catch (e) {
+      if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+        return json({ error: 'Der API-Schlüssel wird nicht akzeptiert. Bitte einen gültigen Schlüssel (beginnt mit sk-ant-api03-) eintragen.' }, 503);
+      }
       if (e instanceof Anthropic.RateLimitError) return json({ error: 'Gerade zu viele Anfragen – bitte gleich noch einmal versuchen.' }, 429);
       if (e instanceof Anthropic.BadRequestError) return json({ error: 'Die Datei konnte nicht gelesen werden (zu groß oder beschädigt).' }, 400);
       if (e instanceof Anthropic.APIError) return json({ error: `Auslesen fehlgeschlagen (${e.status}).` }, 502);
