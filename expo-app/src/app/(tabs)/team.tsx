@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { TeamSchedule } from '@/components/fussballde-panel';
 import { Icon } from '@/components/icons';
+import { LeagueTable } from '@/components/league-table';
 import { TIER_STYLE } from '@/components/player-card';
 import { Button, Card, Field, H, Label, Num, Pill, Row, Screen, StripeHeader, T } from '@/components/ui';
 import { Font } from '@/constants/theme';
@@ -108,6 +109,7 @@ export default function Team() {
       ))}
 
       {team && <TeamSchedule teamId={team.teamId} />}
+      {team && <LeagueTable teamId={team.teamId} />}
 
       {team && (
         <Card style={{ gap: 12 }}>
