@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useState } from 'react';
 
 import type { RankScope } from './ranking';
@@ -185,4 +186,93 @@ export function relativeTime(iso: string, now = Date.now()) {
   if (d === 1) return 'gestern';
   if (d < 7) return `vor ${d} Tagen`;
   return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+}
+
+// ───────────── Spielzentrale, Team-Woche, Bewertungen, Wertungsverlauf ─────────────
+
+export interface MatchInfo {
+  id: string;
+  kickoff: string;
+  opponent: string;
+  isHome: boolean;
+  competition: string | null;
+  venue?: string | null;
+  goalsFor?: number | null;
+  goalsAgainst?: number | null;
+  me?: { minutes: number; goals: number; assists: number; started: boolean; status: string } | null;
+}
+
+export interface MatchCenter {
+  next: MatchInfo | null;
+  last: MatchInfo | null;
+  team: string | null;
+}
+
+const toMatch = (m: any): MatchInfo | null =>
+  m
+    ? {
+        id: m.id,
+        kickoff: m.kickoff,
+        opponent: m.opponent,
+        isHome: m.is_home,
+        competition: m.competition,
+        venue: m.venue ?? null,
+        goalsFor: m.goals_for ?? null,
+        goalsAgainst: m.goals_against ?? null,
+        me: m.me ?? null,
+      }
+    : null;
+
+function useRpc<T>(fn: string, args: Record<string, unknown> | null, map: (d: any) => T, deps: unknown[]) {
+  const [data, setData] = useState<T | null>(null);
+  useEffect(() => {
+    if (!args) return setData(null);
+    let alive = true;
+    supabase.rpc(fn, args).then(({ data: d, error }) => {
+      if (alive && !error) setData(map(d));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return data;
+}
+
+export function useMatchCenter(playerId: string | undefined) {
+  return useRpc<MatchCenter>(
+    'my_match_center',
+    playerId ? { p_player: playerId } : null,
+    (d) => ({ next: toMatch(d?.next), last: toMatch(d?.last), team: d?.team ?? null }),
+    [playerId],
+  );
+}
+
+export interface WeekHero {
+  nickname: string;
+  value: number;
+  mine: boolean;
+}
+export interface TeamWeek {
+  climber: WeekHero | null;
+  busiest: WeekHero | null;
+  best: WeekHero | null;
+}
+
+export function useTeamWeek(teamId: string | undefined) {
+  return useRpc<TeamWeek>('team_week', teamId ? { p_team: teamId } : null, (d) => ({ climber: d?.climber ?? null, busiest: d?.busiest ?? null, best: d?.best ?? null }), [teamId]);
+}
+
+export interface RatingOverview {
+  trainer: { count: number; own: number; foreign: number; technik: number | null; taktik: number | null; athletik: number | null; einsatz: number | null; fairplay: number | null };
+  peer: { count: number; technik?: number; fairplay?: number; einsatz?: number; mitspieler?: number; gegner?: number };
+  recent: { at: string; relation: 'eigener' | 'fremder'; context: string; comment: string | null; club: string | null; avg: number | null }[];
+}
+
+export function useRatingOverview(playerId: string | undefined, refreshKey?: unknown) {
+  return useRpc<RatingOverview>('rating_overview', playerId ? { p_player: playerId } : null, (d) => d as RatingOverview, [playerId, refreshKey]);
+}
+
+export function useRatingHistory(playerId: string | undefined, weeks = 12) {
+  return useRpc<{ at: string; overall: number }[]>('rating_history', playerId ? { p_player: playerId, p_weeks: weeks } : null, (d) => (d ?? []) as { at: string; overall: number }[], [playerId, weeks]);
 }

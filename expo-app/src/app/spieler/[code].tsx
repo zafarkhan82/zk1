@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { PlayerCard } from '@/components/player-card';
+import { RatingForms } from '@/components/rating-forms';
 import { Button, Card, H, Label, Logo, Row, Screen, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
@@ -73,6 +74,8 @@ export default function SpielerScan() {
           </T>
         </View>
       )}
+
+      {session && data?.found && <RatingForms code={String(code)} />}
 
       {!session && (
         <Card style={{ gap: 10 }}>

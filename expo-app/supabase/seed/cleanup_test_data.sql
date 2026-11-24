@@ -26,6 +26,8 @@ alter table players disable trigger user;
 alter table clubs disable trigger user;
 alter table profiles disable trigger user;
 alter table news disable trigger user;
+alter table trainer_ratings disable trigger user;
+alter table peer_ratings disable trigger user;
 alter table ads disable trigger user;
 
 -- Einträge echter Spieler behalten, nur den Verweis lösen
@@ -36,6 +38,8 @@ update diary_entries set team_id = null, club_id = null
 
 delete from news where is_test or team_id in (select id from t_teams) or club_id in (select id from t_clubs);
 delete from ads where is_test or club_id in (select id from t_clubs);
+delete from trainer_ratings where is_test or player_id in (select id from t_players) or trainer_user_id in (select id from t_profiles);
+delete from peer_ratings where is_test or rated_player_id in (select id from t_players) or rater_player_id in (select id from t_players);
 delete from exercise_entries where player_id in (select id from t_players);
 delete from diary_entries where player_id in (select id from t_players);
 delete from challenge_claims where player_id in (select id from t_players);
@@ -76,6 +80,8 @@ alter table players enable trigger user;
 alter table clubs enable trigger user;
 alter table profiles enable trigger user;
 alter table news enable trigger user;
+alter table trainer_ratings enable trigger user;
+alter table peer_ratings enable trigger user;
 alter table ads enable trigger user;
 
 commit;
