@@ -22,26 +22,57 @@ interface KreisClub {
   invites: number;
 }
 
-/** Datei im Browser wählen und als Base64 lesen */
-function pickFile(accept: string): Promise<{ data: string; type: string; name: string } | null> {
+/** Bild im Browser verkleinern und als JPG umwandeln (auch HEIC vom iPhone, große Fotos) */
+function compressImage(file: File): Promise<{ data: string; type: string; name: string } | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const max = 2000;
+      const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(null);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      resolve({ data: dataUrl.slice(dataUrl.indexOf(',') + 1), type: 'image/jpeg', name: file.name || 'Bild.jpg' });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
+
+/** Datei im Browser wählen: Bilder werden verkleinert, PDFs als Base64 gelesen */
+function pickFile(kind: 'image' | 'pdf'): Promise<{ data: string; type: string; name: string } | null | 'error'> {
   return new Promise((resolve) => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return resolve(null);
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = accept;
-    input.onchange = () => {
+    input.accept = kind === 'image' ? 'image/*' : 'application/pdf,.pdf';
+    input.style.display = 'none';
+    document.body.appendChild(input); // iOS Safari öffnet die Auswahl zuverlässiger, wenn das Feld im Dokument ist
+    input.onchange = async () => {
       const f = input.files?.[0];
+      input.remove();
       if (!f) return resolve(null);
-      if (f.size > 20 * 1024 * 1024) {
-        alert('Die Datei ist zu groß (max. 20 MB).');
-        return resolve(null);
-      }
+      if (kind === 'image') return resolve((await compressImage(f)) ?? 'error');
+      if (f.size > 20 * 1024 * 1024) return resolve('error');
       const r = new FileReader();
       r.onload = () => {
         const s = String(r.result ?? '');
-        resolve({ data: s.slice(s.indexOf(',') + 1), type: f.type, name: f.name });
+        resolve({ data: s.slice(s.indexOf(',') + 1), type: 'application/pdf', name: f.name });
       };
-      r.onerror = () => resolve(null);
+      r.onerror = () => resolve('error');
       r.readAsDataURL(f);
     };
     input.click();
@@ -74,6 +105,7 @@ export function ClubImport({ kreisId, onDone }: { kreisId: string; onDone?: () =
   const [clubs, setClubs] = useState<KreisClub[]>([]);
   const [inviteFor, setInviteFor] = useState<string | null>(null);
   const [onlyWithout, setOnlyWithout] = useState(false);
+  const [manual, setManual] = useState('');
 
   const loadClubs = useCallback(async () => {
     const { data } = await supabase.rpc('kreis_clubs_admins', { p_kreis: kreisId });
@@ -147,7 +179,16 @@ export function ClubImport({ kreisId, onDone }: { kreisId: string; onDone?: () =
           <Button
             title={file ? `Datei: ${file.name} (ändern)` : source === 'image' ? 'Bild wählen' : 'PDF wählen'}
             variant="secondary"
-            onPress={async () => setFile(await pickFile(source === 'image' ? 'image/png,image/jpeg,image/webp' : 'application/pdf'))}
+            onPress={async () => {
+              const f = await pickFile(source === 'image' ? 'image' : 'pdf');
+              if (f === 'error') {
+                setFile(null);
+                setMsg({ text: source === 'image' ? 'Das Bild konnte nicht gelesen werden. Bitte als Screenshot (PNG/JPG) versuchen.' : 'Das PDF ist zu groß (max. 20 MB) oder beschädigt.', ok: false });
+              } else {
+                setMsg(null);
+                setFile(f);
+              }
+            }}
           />
         ) : (
           <T size={13} color="textSecondary">
@@ -204,6 +245,36 @@ export function ClubImport({ kreisId, onDone }: { kreisId: string; onDone?: () =
           <Button title="Verwerfen" variant="secondary" onPress={() => setFound(null)} />
         </Card>
       )}
+
+      <Card style={{ gap: 8 }}>
+        <Label>Verein manuell anlegen</Label>
+        <Row style={{ gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Field label="Vereinsname" value={manual} onChangeText={setManual} placeholder="z. B. TSV Heusenstamm" maxLength={120} />
+          </View>
+        </Row>
+        <Button
+          title={busy === 'save' ? 'Lege an …' : 'Verein anlegen'}
+          variant="secondary"
+          disabled={manual.trim().length < 3 || !!busy}
+          onPress={async () => {
+            setBusy('save');
+            const { data, error } = await supabase.rpc('import_clubs', { p_kreis: kreisId, p_clubs: [{ name: manual.trim() }] });
+            setBusy(null);
+            if (error) return setMsg({ text: errorText(error), ok: false });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const c = (data as any)?.clubs?.[0];
+            setMsg({ text: c ? (c.new ? `„${c.name}“ angelegt. Lade jetzt einen Admin ein.` : `„${c.name}“ gibt es schon.`) : 'Bitte einen Vereinsnamen eingeben.', ok: !!c });
+            setManual('');
+            await loadClubs();
+            if (c) setInviteFor(c.id);
+            onDone?.();
+          }}
+        />
+        <T size={12} color="textSecondary">
+          Zusätze wie „II“ oder „2“ werden entfernt; gibt es den Verein im Kreis schon, wird er nicht doppelt angelegt.
+        </T>
+      </Card>
 
       <SectionTitle right={<T color="textSecondary">{clubs.length}</T>}>Vereine & Admins</SectionTitle>
       <Wrap>
