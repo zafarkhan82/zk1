@@ -93,15 +93,18 @@ export default function ClubAdmin() {
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [moveFor, setMoveFor] = useState<string | null>(null);
   const [jersey, setJersey] = useState<Record<string, string>>({});
+  const [trainerTeams, setTrainerTeams] = useState<{ user_id: string; team_id: string; name: string; season: string }[]>([]);
   const [playerFilter, setPlayerFilter] = useState<'aktiv' | 'anfragen' | 'ehemalig'>('aktiv');
 
   const load = useCallback(async () => {
-    const [t, tr, p, h] = await Promise.all([
+    const [t, tr, p, h, tt] = await Promise.all([
       supabase.rpc('club_teams', { p_club: id }),
       supabase.rpc('club_trainers', { p_club: id }),
       supabase.rpc('club_players', { p_club: id }),
       supabase.rpc('club_history', { p_club: id }),
+      supabase.rpc('club_trainer_teams', { p_club: id }),
     ]);
+    setTrainerTeams((tt.data as { user_id: string; team_id: string; name: string; season: string }[]) ?? []);
     const err = t.error ?? tr.error ?? p.error ?? h.error;
     if (err) setMsg(errorText(err));
     setTeams((t.data as TeamRow[]) ?? []);
@@ -312,10 +315,29 @@ export default function ClubAdmin() {
                 {t.email} · seit {d(t.valid_from)}
                 {t.license ? ` · ${t.license}` : ''}
               </T>
-              <T size={13}>Teams: {t.teams ?? '—'}</T>
+              <T size={13} color="textSecondary">
+                Teams {trainerTeams.some((x) => x.user_id === t.user_id) ? '(✕ zum Entfernen)' : ''}
+              </T>
+              <Wrap>
+                {trainerTeams.filter((x) => x.user_id === t.user_id).length === 0 && <T size={13}>—</T>}
+                {trainerTeams
+                  .filter((x) => x.user_id === t.user_id)
+                  .map((x) => (
+                    <Chip
+                      key={x.team_id}
+                      label={`${x.name} (${x.season})  ✕`}
+                      accessibilityLabel={`${x.name} entfernen`}
+                      onPress={() =>
+                        confirmAction(`${x.name} entfernen?`, `${t.display_name} ist dann nicht mehr Trainer*in von ${x.name}. Die Historie bleibt erhalten.`, () =>
+                          run(() => supabase.rpc('club_unassign_trainer', { p_team: x.team_id, p_user: t.user_id }), 'Team-Zuordnung entfernt'),
+                        'Entfernen')
+                      }
+                    />
+                  ))}
+              </Wrap>
               {assignFor === t.membership_id ? (
                 <Wrap>
-                  {activeTeams.map((team) => (
+                  {activeTeams.filter((team) => !trainerTeams.some((x) => x.user_id === t.user_id && x.team_id === team.team_id)).map((team) => (
                     <Chip
                       key={team.team_id}
                       label={`${team.name} (${team.season})`}
