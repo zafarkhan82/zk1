@@ -215,3 +215,89 @@ const styles = StyleSheet.create({
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, gap: 12 },
   sheetItem: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 66, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1.5 },
 });
+
+// ───────────── Menü für Trainer*innen und Admins ohne eigenes Spielerprofil ─────────────
+
+type StaffHref = '/trainer' | '/verwaltung' | '/konto';
+const STAFF_TABS: { href: StaffHref; label: string; icon: 'Whistle' | 'Shield' | 'User'; match: (p: string) => boolean; orgOnly?: boolean }[] = [
+  { href: '/trainer', label: 'Trainer', icon: 'Whistle', match: (p) => p.startsWith('/trainer') || p.startsWith('/verein') },
+  { href: '/verwaltung', label: 'Verwaltung', icon: 'Shield', match: (p) => p.startsWith('/verwaltung'), orgOnly: true },
+  { href: '/konto', label: 'Konto', icon: 'User', match: (p) => p.startsWith('/konto') || p.startsWith('/rolle') || p.startsWith('/admin') },
+];
+
+export function StaffNav({ showVerwaltung }: { showVerwaltung: boolean }) {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const { sideNav, device } = useLayout();
+  const path = usePathname() || '/';
+  const tabs = STAFF_TABS.filter((t) => !t.orgOnly || showVerwaltung);
+
+  if (sideNav) {
+    return (
+      <View
+        accessibilityRole="tablist"
+        style={[styles.side, Platform.OS === 'web' ? ({ position: 'fixed' } as object) : null, { backgroundColor: theme.bar, borderRightColor: theme.border }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+          <Logo size={36} />
+          <Text style={{ fontFamily: Font.display, fontSize: 28, color: theme.text }}>
+            GO<Text style={{ color: theme.primary }}>4</Text>PRO
+          </Text>
+        </View>
+        {tabs.map((t) => {
+          const f = t.match(path);
+          const I = Icon[t.icon];
+          return (
+            <Pressable
+              key={t.href}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: f }}
+              onPress={() => router.navigate(t.href)}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 14,
+                minHeight: 50,
+                paddingHorizontal: 16,
+                borderRadius: 14,
+                backgroundColor: f ? theme.primarySoft : 'transparent',
+                opacity: pressed ? 0.85 : 1,
+              })}>
+              <I size={22} color={f ? theme.primary : theme.textSecondary} />
+              <Text style={{ fontFamily: f ? Font.black : Font.semibold, fontSize: 16, color: f ? theme.primary : theme.text }}>{t.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={[
+        styles.bar,
+        Platform.OS === 'web' ? ({ position: 'fixed' } as object) : null,
+        { backgroundColor: theme.bar, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 10) },
+      ]}>
+      <View style={{ flexDirection: 'row', width: '100%', maxWidth: device === 'tablet' ? 640 : undefined, alignSelf: 'center' }}>
+        {tabs.map((t) => {
+          const f = t.match(path);
+          const I = Icon[t.icon];
+          const color = f ? theme.primary : theme.textSecondary;
+          return (
+            <Pressable
+              key={t.href}
+              onPress={() => router.navigate(t.href)}
+              style={styles.tab}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: f }}
+              accessibilityLabel={t.label}>
+              <I size={24} color={color} />
+              <Text style={{ fontSize: 11, fontFamily: f ? Font.black : Font.semibold, color }}>{t.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}

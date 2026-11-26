@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -14,10 +14,12 @@ import type { Position } from '@/lib/types';
 const POSITIONS: Position[] = ['Tor', 'Abwehr', 'Mittelfeld', 'Sturm', 'Noch offen'];
 
 export default function CreatePlayer() {
-  const { createPlayer, players } = useStore();
+  const { createPlayer, players, appMode } = useStore();
+  const params = useLocalSearchParams<{ rolle?: string }>();
+  const mode = params.rolle === 'spieler' || params.rolle === 'eltern' ? params.rolle : appMode === 'spieler' || appMode === 'eltern' ? appMode : null;
   const theme = useTheme();
   const { hasAny } = useAdminScope();
-  const [forSelf, setForSelf] = useState(false);
+  const [forSelf, setForSelf] = useState(mode === 'spieler');
   const [nickname, setNickname] = useState('');
   const [birthYear, setBirthYear] = useState<number | null>(null);
   const [position, setPosition] = useState<Position>('Noch offen');
@@ -61,17 +63,24 @@ export default function CreatePlayer() {
           <T size={24} weight="800">
             Willkommen! 👋
           </T>
-          <T color="textSecondary">Lege jetzt den Spieler an, dessen Entwicklung ihr festhalten wollt.</T>
+          <T color="textSecondary">
+            {mode === 'spieler'
+              ? 'Lege dein eigenes Spielerprofil an.'
+              : mode === 'eltern'
+                ? 'Lege dein Kind an. Weitere Kinder kannst du später jederzeit hinzufügen.'
+                : 'Lege jetzt den Spieler an, dessen Entwicklung ihr festhalten wollt.'}
+          </T>
         </View>
       )}
 
-      <Card onPress={() => router.push('/trainer')}>
-        <T weight="700">🧑‍🏫 Ich bin Trainer*in</T>
+      <Card onPress={() => router.push('/rolle')}>
+        <T weight="700">Falsche Rolle?</T>
         <T size={14} color="textSecondary">
-          Kein Spielerprofil nötig – direkt zum Trainer-Bereich: Verein, Teams und Freigaben.
+          Du bist Trainer*in oder Admin? Dann brauchst du kein Spielerprofil – tippe hier, um deine Rolle zu ändern.
         </T>
       </Card>
 
+      {!mode && (
       <Card>
         <T weight="700">Für wen ist das Profil?</T>
         <Wrap>
@@ -79,6 +88,7 @@ export default function CreatePlayer() {
           <Chip label="🙋 Für mich (ab 16)" selected={forSelf} onPress={() => setForSelf(true)} />
         </Wrap>
       </Card>
+      )}
 
       <Card>
         <Field
@@ -97,7 +107,7 @@ export default function CreatePlayer() {
       <Card>
         <T weight="700">Jahrgang</T>
         <Wrap>
-          {allowedBirthYears().map((y) => (
+          {allowedBirthYears().filter((y) => !forSelf || new Date().getFullYear() - y >= 17).map((y) => (
             <Chip key={y} label={String(y)} selected={birthYear === y} onPress={() => setBirthYear(y)} />
           ))}
         </Wrap>

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AdCard, NewsPreview, RankOverviewCard, TeamFeed } from '@/components/home-cards';
 import { Icon } from '@/components/icons';
@@ -13,7 +13,7 @@ import {
   TrainingStatusCard,
 } from '@/components/overview';
 import { TIER_STYLE } from '@/components/player-card';
-import { Card, Columns, H, Label, Logo, Num, Progress, Row, Screen, T } from '@/components/ui';
+import { Card, Chip, Columns, H, Label, Logo, Num, Progress, Row, Screen, T } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { DAILY_TIPS, exercisesFor, targetFor } from '@/data/exercises';
 import { useTheme } from '@/hooks/use-theme';
@@ -56,7 +56,7 @@ function longestStreak(days: Set<string>) {
 }
 
 export default function Heute() {
-  const { state, group, premium, teams } = useStore();
+  const { state, group, premium, teams, players, selectPlayer } = useStore();
   const theme = useTheme();
   const profile = state.profile!;
   const xp = totalXp(state);
@@ -124,6 +124,14 @@ export default function Heute() {
           )}
         </Pressable>
       </Row>
+
+      {players.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {players.map((p) => (
+            <Chip key={p.id} label={p.nickname} selected={p.id === profile.id} onPress={() => selectPlayer(p.id)} />
+          ))}
+        </ScrollView>
+      )}
 
       {/* ───────── Wo du stehst ───────── */}
       <View style={{ gap: 6 }}>

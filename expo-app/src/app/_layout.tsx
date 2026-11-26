@@ -15,7 +15,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { AppNav } from '@/components/app-nav';
+import { AppNav, StaffNav } from '@/components/app-nav';
 import { Colors } from '@/constants/theme';
 import { SIDE_NAV_WIDTH, useLayout } from '@/hooks/use-layout';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -69,7 +69,12 @@ function RootStack() {
   const pathname = usePathname() || '/';
   const { sideNav } = useLayout();
   // Menü auf allen Seiten – außer Anmeldung und Spieler-Anlage (dort gibt es noch nichts zu navigieren)
-  const showNav = !!auth.session && store.ready && store.players.length > 0 && !['/login', '/onboarding', '/einladung'].includes(pathname);
+  const hidden = ['/login', '/onboarding', '/einladung', '/rolle'].includes(pathname);
+  const showNav = !!auth.session && store.ready && store.players.length > 0 && !hidden;
+  // Trainer*innen und Admins ohne eigenes Spielerprofil bekommen ein eigenes Menü
+  const showStaffNav =
+    !!auth.session && store.ready && store.players.length === 0 && !hidden &&
+    (store.appMode === 'trainer' || store.appMode === 'admin' || store.isOrgAdmin || store.hasStaffRequests);
   const initialReady = (fontsLoaded || !!fontError) && auth.ready && (!auth.session || store.ready);
   useEffect(() => {
     if (initialReady && !booted) {
@@ -82,7 +87,7 @@ function RootStack() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <View style={{ flex: 1, paddingLeft: showNav && sideNav ? SIDE_NAV_WIDTH : 0 }}>
+      <View style={{ flex: 1, paddingLeft: (showNav || showStaffNav) && sideNav ? SIDE_NAV_WIDTH : 0 }}>
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: c.background },
@@ -113,10 +118,13 @@ function RootStack() {
       <Stack.Screen name="verein/[id]" options={{ title: 'Verein' }} />
       <Stack.Screen name="karte" options={{ title: 'Spielerkarte', headerTitle: '' }} />
       <Stack.Screen name="einladung" options={{ title: 'Einladung', headerShown: false }} />
+      <Stack.Screen name="rolle" options={{ title: 'Rolle', headerShown: false }} />
+      <Stack.Screen name="konto" options={{ title: 'Konto', headerShown: false }} />
       <Stack.Screen name="spieler/[code]" options={{ title: 'Spieler', headerTitle: '' }} />
     </Stack>
       </View>
       {showNav && <AppNav />}
+      {showStaffNav && <StaffNav showVerwaltung={store.isOrgAdmin} />}
     </View>
   );
 }

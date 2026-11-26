@@ -16,7 +16,7 @@ import { errorText } from '@/lib/supabase';
 
 export default function Ich() {
   const { session, signOut } = useAuth();
-  const { state, group, players, premium, isAdmin, isStaff, teams, selectPlayer, setPublicConsent } = useStore();
+  const { state, group, players, premium, isAdmin, isStaff, teams, selectPlayer, setPublicConsent, appMode } = useStore();
   const theme = useTheme();
   const [error, setError] = useState('');
   const profile = state.profile!;
@@ -172,7 +172,10 @@ export default function Ich() {
           {confirmedXp(state)} Ranglisten-Punkte · Spieler-Code {profile.code}
         </T>
       </Card>
-      <LinkRow label="Weiteres Kind anlegen" onPress={() => router.push('/onboarding')} />
+      {appMode !== 'spieler' && (
+        <LinkRow label={players.length > 1 ? `Kinder (${players.length}) · weiteres anlegen` : 'Weiteres Kind anlegen'} onPress={() => router.push({ pathname: '/onboarding', params: { rolle: 'eltern' } })} />
+      )}
+      <LinkRow label="Rolle ändern" hint={appMode === 'spieler' ? 'Spieler*in' : appMode === 'trainer' ? 'Trainer*in' : appMode === 'admin' ? 'Admin' : 'Elternteil'} onPress={() => router.push('/rolle')} />
       <LinkRow label="Trainer-Bereich" hint={isStaff ? 'Freigaben & Teams' : undefined} onPress={() => router.push('/trainer')} />
       {hasAny && (
         <LinkRow

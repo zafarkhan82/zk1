@@ -17,7 +17,7 @@ const TABS: { name: string; href: '/' | '/training' | '/team' | '/profil' }[] = 
 
 export default function TabLayout() {
   const { session } = useAuth();
-  const { players, ready, loadError, refresh, hasStaffRequests, isAdmin } = useStore();
+  const { players, ready, loadError, refresh, appMode, isOrgAdmin } = useStore();
   const theme = useTheme();
 
   if (!session) return <Redirect href="/login" />;
@@ -42,7 +42,13 @@ export default function TabLayout() {
       </View>
     );
   }
-  if (players.length === 0) return <Redirect href={hasStaffRequests && !isAdmin ? '/trainer' : '/onboarding'} />;
+  if (players.length === 0) {
+    // Ohne Spielerprofil: je nach Rolle zur passenden Startseite
+    if (!appMode) return <Redirect href="/rolle" />;
+    if (appMode === 'trainer') return <Redirect href="/trainer" />;
+    if (appMode === 'admin') return <Redirect href={isOrgAdmin ? '/verwaltung' : '/trainer'} />;
+    return <Redirect href={{ pathname: '/onboarding', params: { rolle: appMode } }} />;
+  }
 
   // Das sichtbare Menü kommt aus dem Root-Layout (AppNav) und ist auf allen Seiten gleich.
   // Die Tab-Leiste hier registriert nur die Tab-Routen und bleibt unsichtbar.

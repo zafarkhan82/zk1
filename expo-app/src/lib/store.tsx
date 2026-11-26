@@ -29,6 +29,11 @@ interface Store {
   group: AgeGroup;
   premium: boolean;
   isAdmin: boolean;
+  /** Gewählte Rolle beim Einstieg (null = noch nicht gewählt) */
+  appMode: AppMode | null;
+  setAppMode: (m: AppMode) => Promise<void>;
+  /** Admin eines Bundeslands, Verbands oder Kreises (oder Super-Admin) */
+  isOrgAdmin: boolean;
   teams: TeamInfo[];
   staff: StaffRow[];
   /** Freigeschaltete*r Trainer*in oder Vereins-Admin in mindestens einem Verein */
@@ -46,6 +51,8 @@ interface Store {
   refresh: () => Promise<void>;
   refreshStaff: () => Promise<void>;
 }
+
+export type AppMode = 'eltern' | 'spieler' | 'trainer' | 'admin';
 
 const Ctx = createContext<Store | null>(null);
 
@@ -115,6 +122,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [premium, setPremium] = useState(false);
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [appMode, setAppModeState] = useState<AppMode | null>(null);
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   // Schutz vor vertauschten Daten, wenn schnell zwischen Kindern gewechselt wird
   const requestFor = useRef<string | null>(null);
@@ -123,11 +132,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!uid) {
       setStaff([]);
       setIsAdmin(false);
+      setAppModeState(null);
+      setIsOrgAdmin(false);
       return;
     }
-    const [s, a] = await Promise.all([supabase.rpc('my_staff_overview'), supabase.rpc('is_platform_admin')]);
+    const [s, a, m, sc] = await Promise.all([
+      supabase.rpc('my_staff_overview'),
+      supabase.rpc('is_platform_admin'),
+      supabase.rpc('my_app_mode'),
+      supabase.rpc('my_admin_scope'),
+    ]);
     if (!s.error) setStaff(((s.data ?? []) as unknown[]).map(toStaff));
     setIsAdmin(!!a.data);
+    if (!m.error) setAppModeState((m.data as AppMode | null) ?? null);
+    const scope = sc.data as { super?: boolean; units?: unknown[] } | null;
+    setIsOrgAdmin(!!scope && (!!scope.super || (scope.units?.length ?? 0) > 0));
   }, [uid]);
 
   const loadPlayers = useCallback(async () => {
@@ -352,6 +371,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [loadPlayers, loadPlayerData, activeId]);
 
   const ready = loadedFor === (uid ?? '');
+  const setAppMode = useCallback(async (m: AppMode) => {
+    const { error } = await supabase.rpc('set_app_mode', { p_mode: m });
+    if (error) throw error;
+    setAppModeState(m);
+  }, []);
+
   const profile = players.find((p) => p.id === activeId) ?? null;
   const group: AgeGroup = (profile && ageGroupFor(profile.birthYear)) || 'E';
   const state: AppState = useMemo(() => ({ profile, logs, diary, claimed }), [profile, logs, diary, claimed]);
@@ -368,6 +393,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       group,
       premium,
       isAdmin,
+      appMode,
+      setAppMode,
+      isOrgAdmin,
       teams,
       staff,
       isStaff,
@@ -383,7 +411,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refresh,
       refreshStaff,
     }),
-    [ready, loadError, loading, players, state, group, premium, isAdmin, teams, staff, isStaff, hasStaffRequests, selectPlayer, createPlayer, setPublicConsent, addLog, confirmByPlayer, addDiary, joinTeam, claim, refresh, refreshStaff],
+    [ready, loadError, loading, players, state, group, premium, isAdmin, appMode, setAppMode, isOrgAdmin, teams, staff, isStaff, hasStaffRequests, selectPlayer, createPlayer, setPublicConsent, addLog, confirmByPlayer, addDiary, joinTeam, claim, refresh, refreshStaff],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
