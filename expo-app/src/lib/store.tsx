@@ -64,6 +64,9 @@ const toPlayer = (r: any, uid: string): Player => ({
   birthYear: r.birth_year,
   position: (r.preferred_position ?? 'Noch offen') as Position,
   managedByGuardian: r.guardian_user_id === uid,
+  hasOwnAccess: !!r.own_user_id,
+  isMe: r.own_user_id === uid,
+  hasGuardian: !!r.guardian_user_id,
   publicConsent: !!r.public_consent_at,
 });
 

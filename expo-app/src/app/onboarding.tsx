@@ -8,7 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { AGE_GROUP_LABEL, ageGroupFor, allowedBirthYears, uClass } from '@/lib/age';
 import { useAdminScope } from '@/lib/org';
 import { useStore } from '@/lib/store';
-import { errorText } from '@/lib/supabase';
+import { errorText, supabase } from '@/lib/supabase';
 import type { Position } from '@/lib/types';
 
 const POSITIONS: Position[] = ['Tor', 'Abwehr', 'Mittelfeld', 'Sturm', 'Noch offen'];
@@ -27,6 +27,8 @@ export default function CreatePlayer() {
   const [publicConsent, setPublicConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [parentEmail, setParentEmail] = useState('');
+  const [parentSent, setParentSent] = useState(false);
 
   const group = birthYear ? ageGroupFor(birthYear) : null;
   const u = birthYear ? uClass(birthYear) : 0;
@@ -107,7 +109,7 @@ export default function CreatePlayer() {
       <Card>
         <T weight="700">Jahrgang</T>
         <Wrap>
-          {allowedBirthYears().filter((y) => !forSelf || new Date().getFullYear() - y >= 17).map((y) => (
+          {allowedBirthYears().map((y) => (
             <Chip key={y} label={String(y)} selected={birthYear === y} onPress={() => setBirthYear(y)} />
           ))}
         </Wrap>
@@ -117,9 +119,46 @@ export default function CreatePlayer() {
           </T>
         )}
         {selfTooYoung && (
-          <T size={14} style={{ color: theme.danger }}>
-            Unter 16 legt ein Elternteil das Profil an. Ab Jahrgang {new Date().getFullYear() - 17} geht ein eigenes Konto.
-          </T>
+          <View style={{ gap: 10, marginTop: 6, padding: 14, borderRadius: 16, borderWidth: 1.5, borderColor: theme.primary }}>
+            <T weight="700">Unter 16 brauchst du die Zustimmung deiner Eltern</T>
+            <T size={13} color="textSecondary">
+              Schick deinen Eltern eine Mail: Sie legen dich in der App an und richten dir mit einem Tipp deinen eigenen Zugang ein.
+              Dann trackst du dich selbst und bewertest andere.
+            </T>
+            {parentSent ? (
+              <T size={14} weight="700" style={{ color: theme.success }}>
+                Mail an deine Eltern ist unterwegs. Sobald sie den Zugang eingerichtet haben, bekommst du eine Einladung per Mail.
+              </T>
+            ) : (
+              <>
+                <Field label="E-Mail deiner Eltern" value={parentEmail} onChangeText={setParentEmail} keyboardType="email-address" autoCapitalize="none" placeholder="mama@beispiel.de" />
+                <Button
+                  title={busy ? 'Sende …' : 'Eltern um Zugang bitten'}
+                  disabled={busy || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parentEmail.trim())}
+                  onPress={async () => {
+                    setBusy(true);
+                    setError('');
+                    const { error: e } = await supabase.functions.invoke('request-parent', {
+                      body: { parent_email: parentEmail.trim(), child_name: nickname.trim() || 'Dein Kind' },
+                    });
+                    setBusy(false);
+                    if (e) {
+                      let text = errorText(e);
+                      try {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const ctx = (e as any).context;
+                        if (ctx?.json) text = (await ctx.json()).error ?? text;
+                      } catch {
+                        /* Standardmeldung */
+                      }
+                      return setError(text);
+                    }
+                    setParentSent(true);
+                  }}
+                />
+              </>
+            )}
+          </View>
         )}
       </Card>
 

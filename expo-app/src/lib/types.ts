@@ -21,8 +21,14 @@ export interface Player {
   nickname: string;
   birthYear: number;
   position: Position;
-  /** true = Elternkonto verwaltet das Kind, false = eigenes Konto (ab 16) */
+  /** true = ich bin das Elternkonto dieses Kindes */
   managedByGuardian: boolean;
+  /** Das Kind hat ein eigenes Login (ab 16 allein oder unter 16 von den Eltern eingerichtet) */
+  hasOwnAccess: boolean;
+  /** Ich bin selbst diese*r Spieler*in (eigenes Login) */
+  isMe: boolean;
+  /** Es gibt ein Elternkonto (Zustimmungen liegen dann bei den Eltern, solange unter 16) */
+  hasGuardian: boolean;
   publicConsent: boolean;
 }
 

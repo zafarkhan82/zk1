@@ -11,7 +11,7 @@ import { errorText } from '@/lib/supabase';
 
 const ROLES: { id: AppMode; title: string; text: string; icon: 'User' | 'Ball' | 'Whistle' | 'Shield' }[] = [
   { id: 'eltern', title: 'Elternteil', text: 'Du legst ein oder mehrere Kinder an und begleitest ihr Training.', icon: 'User' },
-  { id: 'spieler', title: 'Spieler*in ab 16', text: 'Du verwaltest dein eigenes Profil – nur dich selbst.', icon: 'Ball' },
+  { id: 'spieler', title: 'Spieler*in', text: 'Du trackst dich selbst und bewertest andere. Unter 16 richten deine Eltern den Zugang ein.', icon: 'Ball' },
   { id: 'trainer', title: 'Trainer*in', text: 'Du betreust Teams – auch in mehreren Vereinen, sobald sie dich freigeben.', icon: 'Whistle' },
   { id: 'admin', title: 'Vereins- oder Verbands-Admin', text: 'Du verwaltest einen Verein, Kreis, Verband oder ein Bundesland.', icon: 'Shield' },
 ];
@@ -89,7 +89,7 @@ export default function Rolle() {
         </Card>
       )}
       <T size={12} color="textSecondary">
-        Für Kinder unter 16 legt ein Elternteil das Profil an. Admin-Rechte vergibt immer die Ebene darüber per Einladung.
+        Unter 16 brauchst du die Zustimmung deiner Eltern – du kannst sie direkt aus der App per Mail darum bitten. Admin-Rechte vergibt immer die Ebene darüber per Einladung.
       </T>
     </Screen>
   );

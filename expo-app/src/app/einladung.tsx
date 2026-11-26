@@ -10,7 +10,7 @@ import { errorText, supabase } from '@/lib/supabase';
 
 interface Info {
   found: boolean;
-  kind?: 'club_admin' | 'org_admin' | 'super_admin';
+  kind?: 'club_admin' | 'org_admin' | 'super_admin' | 'player_access';
   name?: string;
   email_hint?: string;
   target_name?: string;
@@ -18,7 +18,7 @@ interface Info {
   email_matches?: boolean;
 }
 
-const ROLE = { club_admin: 'Vereins-Admin', org_admin: 'Admin', super_admin: 'Super-Admin' } as const;
+const ROLE = { club_admin: 'Vereins-Admin', org_admin: 'Admin', super_admin: 'Super-Admin', player_access: 'Dein Spieler-Zugang' } as const;
 
 /** Bestätigungsseite einer Admin-Einladung (Double-Opt-In): anmelden mit der eingeladenen E-Mail, dann annehmen */
 export default function Einladung() {
@@ -62,7 +62,8 @@ export default function Einladung() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = data as any;
       setTimeout(() => {
-        if (r?.kind === 'club_admin' && r.target_id) router.replace({ pathname: '/verein/[id]', params: { id: r.target_id } });
+        if (r?.kind === 'player_access') router.replace('/');
+        else if (r?.kind === 'club_admin' && r.target_id) router.replace({ pathname: '/verein/[id]', params: { id: r.target_id } });
         else router.replace('/verwaltung');
       }, 900);
     });
@@ -102,7 +103,7 @@ export default function Einladung() {
             <Card>
               <T weight="700">Diese Einladung ist {info.status}.</T>
               {info.status === 'angenommen' ? (
-                <Button title="Zur App" onPress={() => router.replace(info.kind === 'club_admin' ? '/trainer' : '/verwaltung')} />
+                <Button title="Zur App" onPress={() => router.replace(info.kind === 'player_access' ? '/' : info.kind === 'club_admin' ? '/trainer' : '/verwaltung')} />
               ) : (
                 <T size={13} color="textSecondary">
                   Bitte die einladende Person, dich erneut einzuladen.
@@ -132,7 +133,9 @@ export default function Einladung() {
             <Card style={{ gap: 10 }}>
               <T weight="700">Schritt 2: Einladung annehmen</T>
               <T size={13} color="textSecondary">
-                Mit dem Annehmen bekommst du die Rechte als {ROLE[info.kind!]} für {info.target_name}. Du kannst sie jederzeit wieder abgeben.
+                {info.kind === 'player_access'
+                  ? `Damit trägst du dein Training als „${info.target_name}“ selbst ein und kannst andere bewerten. Deine Eltern behalten den Überblick.`
+                  : `Mit dem Annehmen bekommst du die Rechte als ${ROLE[info.kind!]} für ${info.target_name}. Du kannst sie jederzeit wieder abgeben.`}
               </T>
               <Button title={busy ? 'Bestätige …' : 'Einladung annehmen'} disabled={busy} onPress={accept} />
             </Card>

@@ -6,7 +6,7 @@ import { Button, Field, Row, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { errorText, supabase } from '@/lib/supabase';
 
-export type InviteKind = 'club_admin' | 'org_admin' | 'super_admin';
+export type InviteKind = 'club_admin' | 'org_admin' | 'super_admin' | 'player_access';
 
 interface Invite {
   id: string;

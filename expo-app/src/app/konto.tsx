@@ -8,7 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
-const ROLE_LABEL = { eltern: 'Elternteil', spieler: 'Spieler*in ab 16', trainer: 'Trainer*in', admin: 'Vereins-/Verbands-Admin' } as const;
+const ROLE_LABEL = { eltern: 'Elternteil', spieler: 'Spieler*in', trainer: 'Trainer*in', admin: 'Vereins-/Verbands-Admin' } as const;
 
 /** Konto für Trainer*innen und Admins ohne eigenes Spielerprofil */
 export default function Konto() {

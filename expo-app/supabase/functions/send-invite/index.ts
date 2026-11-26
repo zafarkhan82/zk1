@@ -22,6 +22,7 @@ const ROLE: Record<string, string> = {
   club_admin: 'Vereins-Admin',
   org_admin: 'Admin',
   super_admin: 'Super-Admin',
+  player_access: 'eigener Spieler-Zugang',
 };
 
 Deno.serve(async (req) => {
@@ -60,19 +61,25 @@ Deno.serve(async (req) => {
       secure: port === 465,
       auth: { user: Deno.env.get('SMTP_USER'), pass: Deno.env.get('SMTP_PASS') },
     });
+    const child = kind === 'player_access';
     await transport.sendMail({
       from: Deno.env.get('SMTP_FROM') ?? Deno.env.get('SMTP_USER'),
       to: String(email),
-      subject: `Go4Pro: Einladung als ${role} – ${target}`,
+      subject: child ? `Go4Pro: Dein eigener Zugang für „${target}“` : `Go4Pro: Einladung als ${role} – ${target}`,
       text:
-        `Hallo ${name},\n\n${inviter} lädt dich ein, ${role} für „${target}“ bei Go4Pro zu werden.\n\n` +
+        (child
+          ? `Hallo ${name},\n\n${inviter} hat dir einen eigenen Go4Pro-Zugang für dein Spielerprofil „${target}“ eingerichtet. ` +
+            `Damit trägst du dein Training selbst ein und kannst andere bewerten.\n\n`
+          : `Hallo ${name},\n\n${inviter} lädt dich ein, ${role} für „${target}“ bei Go4Pro zu werden.\n\n`) +
         `Bitte bestätige die Einladung über diesen Link (14 Tage gültig):\n${link}\n\n` +
         `Du meldest dich dort mit genau dieser E-Mail-Adresse an (Code per Mail) und nimmst die Einladung an. ` +
         `Erst dann bekommst du die Rechte.\n\nWenn du die Einladung nicht erwartet hast, ignoriere diese Mail einfach.\n\nDein Go4Pro-Team`,
       html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#111">
-  <h2 style="margin:0 0 12px">Einladung als ${esc(role)}</h2>
+  <h2 style="margin:0 0 12px">${child ? 'Dein eigener Go4Pro-Zugang' : `Einladung als ${esc(role)}`}</h2>
   <p>Hallo ${esc(String(name))},</p>
-  <p><b>${esc(inviter)}</b> lädt dich ein, <b>${esc(role)}</b> für <b>„${esc(target)}“</b> bei Go4Pro zu werden.</p>
+  ${child
+    ? `<p><b>${esc(inviter)}</b> hat dir einen eigenen Zugang für dein Spielerprofil <b>„${esc(target)}“</b> eingerichtet. Damit trägst du dein Training selbst ein und kannst andere bewerten.</p>`
+    : `<p><b>${esc(inviter)}</b> lädt dich ein, <b>${esc(role)}</b> für <b>„${esc(target)}“</b> bei Go4Pro zu werden.</p>`}
   <p style="margin:24px 0"><a href="${link}" style="background:#19E3FF;color:#04141B;padding:14px 22px;border-radius:999px;text-decoration:none;font-weight:bold">Einladung bestätigen</a></p>
   <p style="font-size:13px;color:#555">Du meldest dich mit genau dieser E-Mail-Adresse an (Code per Mail) und nimmst die Einladung an. Erst dann bekommst du die Rechte. Der Link ist 14 Tage gültig.</p>
   <p style="font-size:13px;color:#555">Wenn du die Einladung nicht erwartet hast, ignoriere diese Mail einfach.</p>

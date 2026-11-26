@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
+import { InviteBox } from '@/components/invite-form';
 import { PlayerCard, TierLadder } from '@/components/player-card';
 import { Button, Card, Checkbox, Chip, Columns, H, Row, Screen, SectionTitle, Stat, T, Wrap } from '@/components/ui';
 import { Font } from '@/constants/theme';
@@ -157,12 +158,37 @@ export default function Ich() {
       </View>
 
       <SectionTitle>Einstellungen</SectionTitle>
+      {profile.managedByGuardian && (
+        <Card style={{ gap: 10, borderColor: profile.hasOwnAccess ? 'transparent' : theme.primary }}>
+          <T weight="700">Eigener Zugang für {profile.nickname}</T>
+          {profile.hasOwnAccess ? (
+            <T size={13} color="textSecondary">
+              {profile.nickname} hat ein eigenes Login, trägt Training selbst ein und kann andere bewerten. Du behältst den Überblick
+              und entscheidest über die Veröffentlichung.
+            </T>
+          ) : (
+            <>
+              <T size={13} color="textSecondary">
+                Damit {profile.nickname} sich selbst trackt und andere bewertet: E-Mail-Adresse deines Kindes eintragen. Es bekommt eine
+                Einladung, meldet sich an und bestätigt. Deine Zustimmung gibst du mit dieser Einladung.
+              </T>
+              <InviteBox kind="player_access" targetId={profile.id} label={`Zugang für ${profile.nickname} einrichten`} compact />
+            </>
+          )}
+        </Card>
+      )}
       <Card>
-        <Checkbox
-          checked={profile.publicConsent}
-          onChange={toggleConsent}
-          label="Ab der C-Jugend in Ranglisten und der Spielersuche zeigen (Spitzname, Jahrgang, Verein, freigegebene Leistungen). Nur mit Premium."
-        />
+        {profile.isMe && profile.hasGuardian && new Date().getFullYear() - profile.birthYear < 17 ? (
+          <T size={13} color="textSecondary">
+            Ob du in Ranglisten und der Spielersuche erscheinst, entscheiden deine Eltern.
+          </T>
+        ) : (
+          <Checkbox
+            checked={profile.publicConsent}
+            onChange={toggleConsent}
+            label="Ab der C-Jugend in Ranglisten und der Spielersuche zeigen (Spitzname, Jahrgang, Verein, freigegebene Leistungen). Nur mit Premium."
+          />
+        )}
         {!!error && (
           <T size={13} style={{ color: theme.danger }}>
             {error}
@@ -172,7 +198,7 @@ export default function Ich() {
           {confirmedXp(state)} Ranglisten-Punkte · Spieler-Code {profile.code}
         </T>
       </Card>
-      {appMode !== 'spieler' && (
+      {appMode !== 'spieler' && !profile.isMe && (
         <LinkRow label={players.length > 1 ? `Kinder (${players.length}) · weiteres anlegen` : 'Weiteres Kind anlegen'} onPress={() => router.push({ pathname: '/onboarding', params: { rolle: 'eltern' } })} />
       )}
       <LinkRow label="Rolle ändern" hint={appMode === 'spieler' ? 'Spieler*in' : appMode === 'trainer' ? 'Trainer*in' : appMode === 'admin' ? 'Admin' : 'Elternteil'} onPress={() => router.push('/rolle')} />
