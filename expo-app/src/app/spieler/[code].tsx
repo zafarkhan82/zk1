@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { PlayerCard } from '@/components/player-card';
-import { RatingForms } from '@/components/rating-forms';
 import { Button, Card, H, Label, Logo, Row, Screen, T } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
@@ -75,7 +74,15 @@ export default function SpielerScan() {
         </View>
       )}
 
-      {session && data?.found && <RatingForms code={String(code)} />}
+      {session && data?.found && (
+        <Card style={{ gap: 8 }}>
+          <T weight="700">Bewerten?</T>
+          <T size={13} color="textSecondary">
+            Bewertet wird nach jeder Begegnung – Training, Spiel oder Turnier. Unter „Bewerten“ findest du alle, mit denen du zuletzt auf dem Platz standest.
+          </T>
+          <Button title="Zu Bewerten" variant="secondary" onPress={() => router.push('/bewerten')} />
+        </Card>
+      )}
 
       {!session && (
         <Card style={{ gap: 10 }}>

@@ -1,3 +1,4 @@
+import { PartnerReview } from '@/components/moderation';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -125,6 +126,7 @@ export default function Admin() {
         <Button title="Werbung" variant="secondary" onPress={() => router.push('/werbung')} style={{ flex: 1 }} />
         <Button title="Nachricht an alle" variant="secondary" onPress={() => router.push('/nachricht-neu')} style={{ flex: 1 }} />
       </Row>
+      <PartnerReview />
 
       <SectionTitle right={<Button title="↻" variant="secondary" onPress={load} style={{ minHeight: 34, paddingHorizontal: 14 }} />}>
         Offene Zahlungen ({payments.length})

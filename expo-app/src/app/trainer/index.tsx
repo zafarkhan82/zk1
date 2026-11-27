@@ -1,3 +1,4 @@
+import { ReportedRatings } from '@/components/moderation';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -237,7 +238,16 @@ export default function TrainerHub() {
         </Card>
       )}
 
-      {isStaff && <Button title="Nachricht an dein Team schreiben" variant="secondary" onPress={() => router.push('/nachricht-neu')} />}
+      {isStaff && (
+        <>
+          <Row style={{ gap: 8 }}>
+            <Button title="⭐ Bewerten" onPress={() => router.push({ pathname: '/bewerten', params: { als: 'trainer' } })} style={{ flex: 1 }} />
+            <Button title="+ Begegnung" variant="secondary" onPress={() => router.push('/begegnung-neu')} style={{ flex: 1 }} />
+          </Row>
+          <ReportedRatings />
+          <Button title="Nachricht an dein Team schreiben" variant="secondary" onPress={() => router.push('/nachricht-neu')} />
+        </>
+      )}
 
       <SectionTitle>Freigaben ({reviews.length})</SectionTitle>
       {reviews.length === 0 ? (

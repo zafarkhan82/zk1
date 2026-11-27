@@ -72,4 +72,9 @@ export const Icon = {
       <Path d="M13 11l8-4M12 9h9" />
     </Svg>
   ),
+  Star: ({ size = 24, color, strokeWidth = 2 }: P) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" />
+    </Svg>
+  ),
 };

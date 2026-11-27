@@ -30,6 +30,8 @@ export interface Player {
   /** Es gibt ein Elternkonto (Zustimmungen liegen dann bei den Eltern, solange unter 16) */
   hasGuardian: boolean;
   publicConsent: boolean;
+  /** Profilbild (160 × 160 JPEG als Data-URL) */
+  avatar: string | null;
 }
 
 export type EntryStatus = 'pending' | 'confirmed' | 'rejected';

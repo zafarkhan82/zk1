@@ -13,14 +13,14 @@ type IconName = 'Home' | 'Ball' | 'Shield' | 'User';
 type TabHref = '/' | '/training' | '/team' | '/profil';
 
 const TABS: { href: TabHref; label: string; icon: IconName; match: (p: string) => boolean }[] = [
-  { href: '/', label: 'Heute', icon: 'Home', match: (p) => p === '/' || p.startsWith('/nachrichten') || p.startsWith('/challenges') },
+  { href: '/', label: 'Heute', icon: 'Home', match: (p) => p === '/' || ['/nachrichten', '/challenges', '/bewert', '/punkte', '/sponsoring', '/partner'].some((x) => p.startsWith(x)) },
   { href: '/training', label: 'Training', icon: 'Ball', match: (p) => p.startsWith('/training') || p.startsWith('/uebung') },
   { href: '/team', label: 'Team', icon: 'Shield', match: (p) => p.startsWith('/team') || p.startsWith('/rangliste') },
   {
     href: '/profil',
     label: 'Ich',
     icon: 'User',
-    match: (p) => ['/profil', '/verlauf', '/tagebuch', '/premium', '/karte', '/spieler'].some((x) => p.startsWith(x)),
+    match: (p) => ['/profil', '/verlauf', '/tagebuch', '/premium', '/karte', '/spieler', '/seite'].some((x) => p.startsWith(x)),
   },
 ];
 
@@ -164,7 +164,7 @@ function PlusSheet({ visible, onClose }: { visible: boolean; onClose: () => void
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { sideNav } = useLayout();
-  const open = (path: '/training' | '/eintrag' | '/trainer') => {
+  const open = (path: '/training' | '/eintrag' | '/trainer' | '/bewerten') => {
     onClose();
     router.push(path);
   };
@@ -178,7 +178,8 @@ function PlusSheet({ visible, onClose }: { visible: boolean; onClose: () => void
             sideNav ? { borderRadius: 28, width: 460 } : { width: '100%', maxWidth: 640, alignSelf: 'center' },
           ]}>
           <H size={34}>Was hast du gemacht?</H>
-          <SheetItem primary icon={<Icon.Ball size={26} color={theme.primaryText} />} label="Übung eintragen" onPress={() => open('/training')} />
+          <SheetItem primary icon={<Icon.Star size={26} color={theme.primaryText} />} label="Bewerten · +10 Punkte" onPress={() => open('/bewerten')} />
+          <SheetItem icon={<Icon.Ball size={26} color={theme.text} />} label="Übung eintragen" onPress={() => open('/training')} />
           <SheetItem icon={<Icon.Diary size={26} color={theme.text} />} label="Tagebuch-Eintrag" onPress={() => open('/eintrag')} />
           <SheetItem icon={<Icon.Whistle size={26} color={theme.text} />} label="Als Trainer*in eintragen" onPress={() => open('/trainer')} />
           <Pressable onPress={onClose} style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
@@ -218,9 +219,10 @@ const styles = StyleSheet.create({
 
 // ───────────── Menü für Trainer*innen und Admins ohne eigenes Spielerprofil ─────────────
 
-type StaffHref = '/trainer' | '/verwaltung' | '/konto';
-const STAFF_TABS: { href: StaffHref; label: string; icon: 'Whistle' | 'Shield' | 'User'; match: (p: string) => boolean; orgOnly?: boolean }[] = [
+type StaffHref = '/trainer' | '/bewerten' | '/verwaltung' | '/konto';
+const STAFF_TABS: { href: StaffHref; label: string; icon: 'Whistle' | 'Shield' | 'User' | 'Star'; match: (p: string) => boolean; orgOnly?: boolean }[] = [
   { href: '/trainer', label: 'Trainer', icon: 'Whistle', match: (p) => p.startsWith('/trainer') || p.startsWith('/verein') },
+  { href: '/bewerten', label: 'Bewerten', icon: 'Star', match: (p) => ['/bewerten', '/begegnung', '/punkte', '/sponsoring', '/partner', '/seite'].some((x) => p.startsWith(x)) },
   { href: '/verwaltung', label: 'Verwaltung', icon: 'Shield', match: (p) => p.startsWith('/verwaltung'), orgOnly: true },
   { href: '/konto', label: 'Konto', icon: 'User', match: (p) => p.startsWith('/konto') || p.startsWith('/rolle') || p.startsWith('/admin') },
 ];

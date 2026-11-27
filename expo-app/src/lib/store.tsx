@@ -43,6 +43,12 @@ interface Store {
   selectPlayer: (id: string) => void;
   createPlayer: (p: NewPlayer) => Promise<void>;
   setPublicConsent: (v: boolean) => Promise<void>;
+  /** Profilbild des eigenen Kontos (Trainer*in, Eltern, Admin) */
+  myAvatar: string | null;
+  setMyAvatar: (data: string | null) => Promise<void>;
+  setPlayerAvatar: (playerId: string, data: string | null) => Promise<void>;
+  /** Anzeigename des Kontos */
+  displayName: string | null;
   addLog: (l: NewLog) => Promise<ExerciseLog>;
   confirmByPlayer: (ids: string[]) => Promise<void>;
   addDiary: (d: Omit<DiaryEntry, 'id' | 'date'>) => Promise<void>;
@@ -68,6 +74,7 @@ const toPlayer = (r: any, uid: string): Player => ({
   isMe: r.own_user_id === uid,
   hasGuardian: !!r.guardian_user_id,
   publicConsent: !!r.public_consent_at,
+  avatar: r.avatar ?? null,
 });
 
 export const toLog = (r: any): ExerciseLog => ({
@@ -128,6 +135,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [appMode, setAppModeState] = useState<AppMode | null>(null);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [staff, setStaff] = useState<StaffRow[]>([]);
+  const [myAvatar, setMyAvatarState] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   // Schutz vor vertauschten Daten, wenn schnell zwischen Kindern gewechselt wird
   const requestFor = useRef<string | null>(null);
 
@@ -137,8 +146,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setIsAdmin(false);
       setAppModeState(null);
       setIsOrgAdmin(false);
+      setMyAvatarState(null);
       return;
     }
+    supabase
+      .from('profiles')
+      .select('avatar,display_name')
+      .eq('id', uid)
+      .maybeSingle()
+      .then(({ data }) => {
+        setMyAvatarState(data?.avatar ?? null);
+        setDisplayName(data?.display_name ?? null);
+      });
     const [s, a, m, sc] = await Promise.all([
       supabase.rpc('my_staff_overview'),
       supabase.rpc('is_platform_admin'),
@@ -285,6 +304,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [activeId],
   );
 
+  const setMyAvatar = useCallback(async (data: string | null) => {
+    const { error } = await supabase.rpc('set_my_avatar', { p_data: data ?? '' });
+    if (error) throw error;
+    setMyAvatarState(data);
+  }, []);
+
+  const setPlayerAvatar = useCallback(async (playerId: string, data: string | null) => {
+    const { error } = await supabase.rpc('set_player_avatar', { p_player: playerId, p_data: data ?? '' });
+    if (error) throw error;
+    setPlayers((list) => list.map((p) => (p.id === playerId ? { ...p, avatar: data } : p)));
+  }, []);
+
   const addLog = useCallback(
     async (l: NewLog) => {
       if (!activeId || !uid) throw new Error('Kein Spieler gewählt');
@@ -406,6 +437,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       selectPlayer,
       createPlayer,
       setPublicConsent,
+      myAvatar,
+      setMyAvatar,
+      setPlayerAvatar,
+      displayName,
       addLog,
       confirmByPlayer,
       addDiary,
@@ -414,7 +449,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refresh,
       refreshStaff,
     }),
-    [ready, loadError, loading, players, state, group, premium, isAdmin, appMode, setAppMode, isOrgAdmin, teams, staff, isStaff, hasStaffRequests, selectPlayer, createPlayer, setPublicConsent, addLog, confirmByPlayer, addDiary, joinTeam, claim, refresh, refreshStaff],
+    [ready, loadError, loading, players, state, group, premium, isAdmin, appMode, setAppMode, isOrgAdmin, teams, staff, isStaff, hasStaffRequests, selectPlayer, createPlayer, setPublicConsent, myAvatar, setMyAvatar, setPlayerAvatar, displayName, addLog, confirmByPlayer, addDiary, joinTeam, claim, refresh, refreshStaff],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

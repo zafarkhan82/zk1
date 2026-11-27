@@ -16,6 +16,8 @@ import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AppNav, StaffNav } from '@/components/app-nav';
+import { LiveRatingToast } from '@/components/live-ratings';
+import { StartAnimation } from '@/components/splash';
 import { Colors } from '@/constants/theme';
 import { SIDE_NAV_WIDTH, useLayout } from '@/hooks/use-layout';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -66,10 +68,11 @@ function RootStack() {
   // Nur beim allerersten Start warten. Danach bleibt die Navigation immer stehen –
   // spätere Ladezustände (z. B. nach dem Anmelden) zeigen die Screens selbst an.
   const [booted, setBooted] = useState(false);
+  const [intro, setIntro] = useState(true);
   const pathname = usePathname() || '/';
   const { sideNav } = useLayout();
   // Menü auf allen Seiten – außer Anmeldung und Spieler-Anlage (dort gibt es noch nichts zu navigieren)
-  const hidden = ['/login', '/onboarding', '/einladung', '/rolle'].includes(pathname);
+  const hidden = ['/login', '/onboarding', '/einladung', '/rolle'].includes(pathname) || pathname.startsWith('/p/');
   const showNav = !!auth.session && store.ready && store.players.length > 0 && !hidden;
   // Trainer*innen und Admins ohne eigenes Spielerprofil bekommen ein eigenes Menü
   const showStaffNav =
@@ -121,10 +124,20 @@ function RootStack() {
       <Stack.Screen name="rolle" options={{ title: 'Rolle', headerShown: false }} />
       <Stack.Screen name="konto" options={{ title: 'Konto', headerShown: false }} />
       <Stack.Screen name="spieler/[code]" options={{ title: 'Spieler', headerTitle: '' }} />
+      <Stack.Screen name="bewerten" options={{ title: 'Bewerten', headerTitle: '' }} />
+      <Stack.Screen name="bewertungen" options={{ title: 'Bewertungen', headerTitle: '' }} />
+      <Stack.Screen name="begegnung-neu" options={{ title: 'Begegnung', headerTitle: '' }} />
+      <Stack.Screen name="punkte" options={{ title: 'Punkte', headerTitle: '' }} />
+      <Stack.Screen name="partner" options={{ title: 'Partner', headerTitle: '' }} />
+      <Stack.Screen name="sponsoring" options={{ title: 'Sponsoring', headerTitle: '' }} />
+      <Stack.Screen name="seite" options={{ title: 'Meine Seite', headerTitle: '' }} />
+      <Stack.Screen name="p/[slug]" options={{ title: 'Go4Pro', headerShown: false }} />
     </Stack>
       </View>
       {showNav && <AppNav />}
       {showStaffNav && <StaffNav showVerwaltung={store.isOrgAdmin} />}
+      {!!auth.session && <LiveRatingToast playerId={store.players.length ? (store.state.profile?.id ?? null) : null} />}
+      {intro && !pathname.startsWith('/p/') && <StartAnimation onDone={() => setIntro(false)} />}
     </View>
   );
 }

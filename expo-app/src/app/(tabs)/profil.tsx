@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { InviteBox } from '@/components/invite-form';
+import { AvatarPicker } from '@/components/avatar';
 import { PlayerCard, TierLadder } from '@/components/player-card';
 import { Button, Card, Checkbox, Chip, Columns, H, Row, Screen, SectionTitle, Stat, T, Wrap } from '@/components/ui';
 import { Font } from '@/constants/theme';
@@ -17,7 +18,7 @@ import { errorText } from '@/lib/supabase';
 
 export default function Ich() {
   const { session, signOut } = useAuth();
-  const { state, group, players, premium, isAdmin, isStaff, teams, selectPlayer, setPublicConsent, appMode } = useStore();
+  const { state, group, players, premium, isAdmin, isStaff, teams, selectPlayer, setPublicConsent, appMode, setPlayerAvatar } = useStore();
   const theme = useTheme();
   const [error, setError] = useState('');
   const profile = state.profile!;
@@ -77,6 +78,17 @@ export default function Ich() {
       <Columns
         left={
           <>
+      <Row style={{ gap: 16 }}>
+        <AvatarPicker uri={players.find((p) => p.id === profile.id)?.avatar} name={profile.nickname} size={76} onSave={(d) => setPlayerAvatar(profile.id, d)} />
+        <View style={{ flex: 1 }}>
+          <H size={34} numberOfLines={1}>
+            {profile.nickname}
+          </H>
+          <T size={12} color="textSecondary">
+            Profilbild antippen zum Ändern – sichtbar für Team und Bewertungen.
+          </T>
+        </View>
+      </Row>
       <Row style={{ justifyContent: 'space-between' }}>
         <H size={44}>Deine Karte</H>
         {rating && rating.overallWeekAgo != null && rating.overall !== rating.overallWeekAgo && (
@@ -120,6 +132,10 @@ export default function Ich() {
         <Stat label="Abzeichen" value={`${earned}/${list.length}`} />
       </Row>
 
+      <LinkRow label="Meine Bewertungen" hint="wer mich wie bewertet hat" onPress={() => router.push('/bewertungen')} highlight />
+      <LinkRow label="Punkte & Gutscheine" hint="fürs Bewerten" onPress={() => router.push('/punkte')} />
+      <LinkRow label="Meine Seite" hint="ab 300 Punkten" onPress={() => router.push('/seite')} />
+      <LinkRow label="Sponsoring-Börse" onPress={() => router.push('/sponsoring')} />
       <LinkRow label="Verlauf" hint={`${state.logs.length + state.diary.length} Einträge`} onPress={() => router.push('/verlauf')} />
       <LinkRow label="Rangliste" hint="Team bis Deutschland" onPress={() => router.push('/rangliste')} />
       <LinkRow label="Tagebuch" hint={`${state.diary.length} Einträge`} onPress={() => router.push('/tagebuch')} />

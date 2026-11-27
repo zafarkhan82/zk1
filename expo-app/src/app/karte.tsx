@@ -9,10 +9,10 @@ import { playerLink, usePlayerRating } from '@/lib/rating';
 import { useStore } from '@/lib/store';
 
 const PARTS: { key: 'skill' | 'activity' | 'volume' | 'rating' | 'match'; label: string; weight: string; hint: string }[] = [
-  { key: 'skill', label: 'Können', weight: '55 %', hint: 'Deine besten Übungen je Bereich – Gold zählt mehr als Bronze, bestätigt mehr als unbestätigt.' },
-  { key: 'activity', label: 'Aktivität', weight: '15 %', hint: 'In wie vielen der letzten 8 Wochen du trainiert hast.' },
+  { key: 'skill', label: 'Können', weight: '40 %', hint: 'Deine besten Übungen je Bereich – Gold zählt mehr als Bronze, bestätigt mehr als unbestätigt.' },
+  { key: 'activity', label: 'Aktivität', weight: '10 %', hint: 'In wie vielen der letzten 8 Wochen du trainiert hast.' },
   { key: 'volume', label: 'Umfang', weight: '10 %', hint: 'Bestätigte Übungen der letzten 90 Tage (40 = voll).' },
-  { key: 'rating', label: 'Bewertungen', weight: '10 %', hint: 'Bewertungen von Trainer*innen und Mitspieler*innen.' },
+  { key: 'rating', label: 'Bewertungen', weight: '30 %', hint: '1–6 Sterne pro Begegnung von Trainer*innen (zählen doppelt), Mitspieler*innen und Gegnern. Ohne Bewertungen zählt das Können mehr.' },
   { key: 'match', label: 'Spiele', weight: '10 %', hint: 'Einsatzminuten und Torbeteiligungen aus bestätigten Spielen.' },
 ];
 

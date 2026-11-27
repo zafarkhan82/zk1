@@ -6,13 +6,14 @@ import { Icon } from '@/components/icons';
 import {
   Anchors,
   MatchCenterCard,
-  RatingsCard,
   SectionHeading,
   StatsCard,
   TeamWeekCard,
   TrainingStatusCard,
 } from '@/components/overview';
 import { TIER_STYLE } from '@/components/player-card';
+import { Avatar } from '@/components/avatar';
+import { RatingHero } from '@/components/rating-hero';
 import { Card, Chip, Columns, H, Label, Logo, Num, Progress, Row, Screen, T } from '@/components/ui';
 import { Font } from '@/constants/theme';
 import { DAILY_TIPS, exercisesFor, targetFor } from '@/data/exercises';
@@ -25,7 +26,6 @@ import {
   useNews,
   useRankOverview,
   useRatingHistory,
-  useRatingOverview,
   useTeamFeed,
   useTeamWeek,
 } from '@/lib/home';
@@ -68,7 +68,6 @@ export default function Heute() {
   const ranks = useRankOverview(profile.id, state.logs.length);
   const matches = useMatchCenter(profile.id);
   const teamWeek = useTeamWeek(team?.teamId);
-  const ratings = useRatingOverview(profile.id);
   const history = useRatingHistory(profile.id, 12);
   const { items: news } = useNews(profile.id, 5);
   const feed = useTeamFeed(team?.teamId);
@@ -135,9 +134,14 @@ export default function Heute() {
 
       {/* ───────── Wo du stehst ───────── */}
       <View style={{ gap: 6 }}>
-        <H size={44} numberOfLines={1}>
-          Hi, {profile.nickname}
-        </H>
+        <Row style={{ gap: 12 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Profilbild" onPress={() => router.navigate('/profil')}>
+            <Avatar uri={players.find((p) => p.id === profile.id)?.avatar} name={profile.nickname} size={48} ring={tier ? TIER_STYLE[tier.id].edge : theme.primary} />
+          </Pressable>
+          <H size={44} numberOfLines={1} style={{ flex: 1 }}>
+            Hi, {profile.nickname}
+          </H>
+        </Row>
         {rating && tier && (
           <Row style={{ gap: 8, flexWrap: 'wrap' }}>
             <View style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, backgroundColor: TIER_STYLE[tier.id].chip }}>
@@ -158,6 +162,8 @@ export default function Heute() {
           <T weight="700">{toConfirm.length === 1 ? '1 Ergebnis' : `${toConfirm.length} Ergebnisse`} warten auf deine Bestätigung</T>
         </Card>
       )}
+
+      <RatingHero playerId={profile.id} />
 
       <Columns
         left={
@@ -194,7 +200,6 @@ export default function Heute() {
         left={
           <>
             <TrainingStatusCard state={state} mission={{ id: mission.id, title: mission.title, level: missionLevel, target: missionTarget }} />
-            <RatingsCard data={ratings} go4proId={rating?.go4proId ?? null} />
           </>
         }
         right={
