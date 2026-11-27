@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="google" content="notranslate" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Go4Pro</title>
+    <script>
+      // Zeigt unerwartete Fehler an, statt eine weiße Seite zu hinterlassen (Fehlersuche auf dem Handy).
+      (function () {
+        function show(msg) {
+          var root = document.getElementById('root');
+          if (root && root.children.length && root.innerText.trim().length > 20) return;
+          var d = document.getElementById('kt-error') || document.createElement('pre');
+          d.id = 'kt-error';
+          d.style.cssText = 'position:fixed;inset:0;z-index:99999;margin:0;padding:24px;padding-top:60px;background:#F4F7F5;color:#C93A3A;font:13px/1.4 monospace;white-space:pre-wrap;overflow:auto';
+          d.textContent = '🤕 Da ist etwas schiefgelaufen. Bitte Screenshot schicken.\n\n' + msg;
+          document.body.appendChild(d);
+        }
+        window.addEventListener('error', function (e) { show((e.message || 'Fehler') + '\n' + (e.filename || '') + ':' + (e.lineno || '')); });
+        window.addEventListener('unhandledrejection', function (e) { var r = e.reason || {}; show('Promise: ' + (r.message || r) + '\n' + (r.stack || '').split('\n').slice(0, 5).join('\n')); });
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (!root || root.innerText.trim().length < 5) show('Die App hat nach 12 Sekunden nichts angezeigt.\nAdresse: ' + location.pathname + (location.hash ? ' (mit #…)' : ''));
+        }, 12000);
+      })();
+    </script>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  <link rel="icon" href="/zk1/favicon.ico"/><link rel="preload" href="/zk1/_expo/static/css/global-87fd0564cfa78f37afcb8d7603e15d75.css" as="style">
+<link rel="stylesheet" href="/zk1/_expo/static/css/global-87fd0564cfa78f37afcb8d7603e15d75.css"></head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript> You need to enable JavaScript to run this app. </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  <script src="/zk1/_expo/static/js/web/__expo-metro-runtime-ed4c1cfa6193d76fc294130e42bd1916.js" defer></script><script src="/zk1/_expo/static/js/web/__common-e2fd07313cb0107aa20dc822e5b5f4fe.js" defer></script><script src="/zk1/_expo/static/js/web/entry-5711ea50c918668b02d1bd4f819a8958.js" defer></script>
+</body>
+</html>
